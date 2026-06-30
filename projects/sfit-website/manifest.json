@@ -1,0 +1,88 @@
+{
+  "name": "SFIT Kitchen & Hardware",
+  "short_name": "SFIT",
+  "description": "Premium modular kitchen accessories, sliding wardrobe fittings, and architectural hardware.",
+  "id": "/?source=pwa",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#050d1a",
+  "theme_color": "#050d1a",
+  "orientation": "portrait",
+  "dir": "ltr",
+  "lang": "en",
+  "categories": [
+    "shopping",
+    "business"
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Products Catalog",
+      "short_name": "Products",
+      "description": "Browse modular kitchen accessories and wardrobe sliding profiles.",
+      "url": "/#products",
+      "icons": [
+        {
+          "src": "/logo-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Contact Us",
+      "short_name": "Contact",
+      "description": "Get in touch or call S-FIT Kitchen & Hardware.",
+      "url": "/#contact",
+      "icons": [
+        {
+          "src": "/logo-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SFIT Desktop Home Screen"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "412x915",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "SFIT Mobile Home Screen"
+    }
+  ]
+}

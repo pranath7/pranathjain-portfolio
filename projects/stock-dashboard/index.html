@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Institutional Equity Research Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" crossorigin src="./assets/index-3N6LQEn3.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-pMwNezGa.css">
+  </head>
+  <body>
+    <div class="dashboard-container">
+      
+      <!-- HEADER / SEARCH -->
+      <header class="dashboard-header">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span>Apex Research</span>
+        </div>
+        <div class="search-bar-container">
+          <div class="search-bar">
+            <input type="text" id="tickerInput" placeholder="Ticker (e.g. RELIANCE.NS, AAPL)..." autocomplete="off" />
+            <button id="searchBtn">Analyze</button>
+          </div>
+          <ul id="suggestionsBox" class="suggestions-dropdown hidden"></ul>
+        </div>
+        <div class="api-key-area">
+          <label for="apiKeyInput" title="Groq API key for AI-powered analysis (free at console.groq.com)">⚡ Groq Key</label>
+          <input type="password" id="apiKeyInput" placeholder="gsk_..." autocomplete="off" />
+        </div>
+        <div class="user-profile" id="profileTrigger" style="cursor: pointer;" title="Edit Analyst Profile">
+          <img id="headerAvatar" src="https://i.pravatar.cc/150?img=11" alt="Analyst" />
+          <span id="headerName">L. Jenkins, CFA</span>
+        </div>
+      </header>
+
+      <!-- MAIN CONTENT (Hidden initially, shown after search) -->
+      <main id="dashboardMain" class="dashboard-main hidden">
+        
+        <!-- HEADER ROW: Company Info & Verdict -->
+        <section class="top-row">
+          <div class="card company-hero">
+            <div class="company-header">
+              <h1 id="companyName">Reliance Industries</h1>
+              <span class="ticker" id="companyTicker">NSE: RELIANCE</span>
+            </div>
+            <div class="price-info">
+              <h2 id="currentPrice">₹2,950.40</h2>
+              <span class="price-change positive">+1.50% (1D)</span>
+            </div>
+            <p id="companyOverview" class="overview-text">
+              Reliance Industries is India's largest conglomerate, with diverse businesses spanning energy, petrochemicals, natural gas, retail, digital services, and telecommunications.
+            </p>
+          </div>
+
+          <!-- VERDICT SUMMARY -->
+          <div class="card verdict-card">
+            <h3 class="section-title">Investment Thesis & Verdict</h3>
+            <div class="verdict-grid">
+              <div class="verdict-item conviction">
+                <span class="label">Conviction</span>
+                <strong id="convictionLevel" class="high-conviction">STRONG BUY</strong>
+              </div>
+              <div class="verdict-item risk">
+                <span class="label">Risk Score</span>
+                <strong id="riskScore">35/100</strong>
+              </div>
+              <div class="verdict-item potential">
+                <span class="label">Long-Term Potential</span>
+                <strong id="ltPotential">OUTPERFORM</strong>
+              </div>
+            </div>
+            <div class="bull-bear-container">
+              <div class="bull-case">
+                <h4><span class="icon">🐂</span> Bull Case</h4>
+                <p id="bullCase">Jio's 5G monetization accelerates, Retail expansion drives massive revenue growth, and New Energy investments start yielding high margins.</p>
+              </div>
+              <div class="bear-case">
+                <h4><span class="icon">🐻</span> Bear Case</h4>
+                <p id="bearCase">Capital expenditure in New Energy takes longer to break even, global refining margins contract impacting core O2C business.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- MIDDLE ROW: Business & Industry & Financials -->
+        <section class="middle-row">
+          
+          <div class="column-left">
+            <div class="card">
+              <h3 class="section-title">Business Model & Moat</h3>
+              <p id="businessModel">A highly diversified conglomerate model. The legacy Oil-to-Chemicals (O2C) business generates massive cash flow to fund high-growth consumer businesses (Jio, Retail) and New Energy.</p>
+              
+              <h4 class="sub-title mt-4">Competitive Advantages (Moat)</h4>
+              <ul id="compAdvantages" class="styled-list">
+                <li>Unmatched scale and vertical integration in India.</li>
+                <li>Dominant market leadership in Telecom (Jio) and Organized Retail.</li>
+                <li>Massive balance sheet strength for strategic acquisitions.</li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <h3 class="section-title">SWOT Analysis</h3>
+              <div class="swot-grid">
+                <div class="swot-box strength">
+                  <h5>Strengths</h5>
+                  <p>Cash pile, brand loyalty, silicon architecture.</p>
+                </div>
+                <div class="swot-box weakness">
+                  <h5>Weaknesses</h5>
+                  <p>Over-reliance on iPhone revenue, slow to generative AI.</p>
+                </div>
+                <div class="swot-box opportunity">
+                  <h5>Opportunities</h5>
+                  <p>Healthcare integration, AR/VR, automotive tech.</p>
+                </div>
+                <div class="swot-box threat">
+                  <h5>Threats</h5>
+                  <p>Geopolitics (China reliance), Antitrust lawsuits.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="column-right">
+            <div class="card chart-card">
+              <h3 class="section-title">5-Year Historical Price Action</h3>
+              <div class="chart-container">
+                <canvas id="financialChart"></canvas>
+              </div>
+              <div class="financial-metrics mt-4">
+                <div class="metric"><span class="label">Revenue Growth</span> <strong id="metricRev">N/A</strong></div>
+                <div class="metric"><span class="label">Return on Equity</span> <strong id="metricROE">N/A</strong></div>
+                <div class="metric"><span class="label">Debt/Equity</span> <strong id="metricDebt">N/A</strong></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3 class="section-title">Valuation Analysis</h3>
+              <div class="valuation-content">
+                <p>Trading at <strong>22x Forward P/E</strong>, justified by the shift towards higher-growth consumer and digital segments. SOTP (Sum of the Parts) valuation implies a fair value of ₹3,400.</p>
+                <div class="valuation-bar">
+                  <div class="val-min">₹2,500</div>
+                  <div class="val-bar-wrapper">
+                    <div class="val-current" style="left: 45%;"></div>
+                    <div class="val-target" style="left: 80%;"></div>
+                  </div>
+                  <div class="val-max">₹3,500</div>
+                </div>
+                <div class="val-legend">
+                  <span><span class="dot current"></span>Current (₹2950)</span>
+                  <span><span class="dot target"></span>Target (₹3400)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TECHNICAL OUTLOOK ROW -->
+        <section class="middle-row" style="margin-top:0;">
+          <div class="card" style="width:100%;">
+            <h3 class="section-title">📐 Technical Outlook (Real-Time Data)</h3>
+            <p id="technicalOutlook" class="overview-text" style="font-size:0.9rem; line-height:1.8;">Technical analysis will appear after you search for a stock.</p>
+          </div>
+        </section>
+
+        <!-- 3-YEAR FINANCIAL HISTORY (DEEP) -->
+        <section class="bottom-row grid-3">
+          <div class="card" style="grid-column: 1 / -1;">
+            <h3 class="section-title">📊 3-Year Annual Report Deep Dive</h3>
+            <div class="fin-history-grid">
+              <div class="fin-year-card">
+                <span class="fin-year-label">FY 2022</span>
+                <p id="fin2022" class="fin-year-text">Loading...</p>
+              </div>
+              <div class="fin-year-card">
+                <span class="fin-year-label">FY 2023</span>
+                <p id="fin2023" class="fin-year-text">Loading...</p>
+              </div>
+              <div class="fin-year-card">
+                <span class="fin-year-label">FY 2024</span>
+                <p id="fin2024" class="fin-year-text">Loading...</p>
+              </div>
+            </div>
+            <div class="fin-extra-grid">
+              <div class="fin-extra-card">
+                <span class="fin-extra-label">📦 Segment Breakdown</span>
+                <p id="finSegments" class="fin-year-text">–</p>
+              </div>
+              <div class="fin-extra-card">
+                <span class="fin-extra-label">🏗️ Capex Plan</span>
+                <p id="finCapex" class="fin-year-text">–</p>
+              </div>
+              <div class="fin-extra-card">
+                <span class="fin-extra-label">💳 Debt Profile</span>
+                <p id="finDebt" class="fin-year-text">–</p>
+              </div>
+              <div class="fin-extra-card">
+                <span class="fin-extra-label">💵 FCF Quality</span>
+                <p id="finFCF" class="fin-year-text">–</p>
+              </div>
+            </div>
+            <div class="fin-trend-box">
+              <span class="trend-label">📈 3-Year Trend:</span>
+              <p id="finTrend" style="margin:0; font-size:0.9rem; color:var(--text-secondary);">Trend analysis loading...</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- MANAGEMENT PSYCHOLOGY -->
+        <section class="bottom-row grid-2">
+          <div class="card">
+            <h3 class="section-title">🧠 Management Psychology & Track Record</h3>
+            <p class="sub-label">CEO / Leadership</p>
+            <p id="mgmtCEO" class="badge-text">–</p>
+            <p class="sub-label mt-2">Management Style & Capital Allocation</p>
+            <p id="mgmtPsychology" class="overview-text small-text">–</p>
+            <p class="sub-label mt-2">🎯 Key Promises (AGM Guidance vs Delivery)</p>
+            <ul id="mgmtPromises" class="styled-list green"></ul>
+            <p class="sub-label mt-2">✅ Delivery Track Record</p>
+            <p id="mgmtDelivery" class="overview-text small-text">–</p>
+            <p class="sub-label mt-2">🏛️ Governance Concerns</p>
+            <p id="mgmtGovernance" class="overview-text small-text text-red">–</p>
+            <p class="sub-label mt-2">📢 Current Guidance (FY2025/26)</p>
+            <p id="mgmtGuidance" class="overview-text small-text accent-text">–</p>
+          </div>
+
+          <div class="card">
+            <h3 class="section-title">📰 News Sentiment & Catalysts</h3>
+            <p class="sub-label">Recent News Interpretation</p>
+            <p id="newsSentiment" class="overview-text small-text">–</p>
+            <p class="sub-label mt-2">🚀 Growth Catalysts (with timelines)</p>
+            <ul id="catalystsList" class="styled-list green"></ul>
+            <p class="sub-label mt-2 text-red">⚠️ Red Flags</p>
+            <ul id="redFlagsList" class="styled-list red"></ul>
+          </div>
+        </section>
+
+        <!-- 🌍 GLOBAL MACRO & WORLD AFFAIRS IMPACT -->
+        <section class="bottom-row grid-1">
+          <div class="card macro-card">
+            <div class="macro-header">
+              <h3 class="section-title">🌍 Global Macro & World Affairs Impact</h3>
+              <div class="macro-verdict-badge">
+                <span style="font-size:0.75rem; color:var(--text-secondary);">Overall Macro:</span>
+                <span id="macroOverallRating" class="macro-verdict">–</span>
+              </div>
+            </div>
+            <div class="macro-grid">
+              <div class="macro-item">
+                <span class="macro-label">🏦 Fed Rate Sensitivity</span>
+                <p id="macroFed" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">💱 Currency Risk</span>
+                <p id="macroCurrency" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">🛢️ Commodity Sensitivity</span>
+                <p id="macroCommodity" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">⚔️ Geopolitical Risk</span>
+                <p id="macroGeo" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">🚢 Supply Chain Exposure</span>
+                <p id="macroSupply" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">📜 Trade Policy Risk</span>
+                <p id="macroTrade" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">🌱 ESG / Climate Risk</span>
+                <p id="macroESG" class="macro-text">–</p>
+              </div>
+              <div class="macro-item">
+                <span class="macro-label">📉 Global Recession Risk</span>
+                <p id="macroRecession" class="macro-text">–</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SWOT ANALYSIS (Dynamic) -->
+        <section class="bottom-row grid-1">
+          <div class="card">
+            <h3 class="section-title">⚡ SWOT Analysis (AI-Generated from Annual Reports)</h3>
+            <div class="swot-grid">
+              <div class="swot-box strength">
+                <h5>💪 Strengths</h5>
+                <ul id="swotStrengths" class="swot-list"></ul>
+              </div>
+              <div class="swot-box weakness">
+                <h5>⚠️ Weaknesses</h5>
+                <ul id="swotWeaknesses" class="swot-list"></ul>
+              </div>
+              <div class="swot-box opportunity">
+                <h5>🌱 Opportunities</h5>
+                <ul id="swotOpportunities" class="swot-list"></ul>
+              </div>
+              <div class="swot-box threat">
+                <h5>🔴 Threats</h5>
+                <ul id="swotThreats" class="swot-list"></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+
+
+      <!-- Loading State -->
+      <div id="loadingState" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p id="loadingStatus">Fetching live market data...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state">
+        <div class="icon">📈</div>
+        <h2>Professional Equity Research</h2>
+        <p>Enter a ticker symbol above to generate a comprehensive institutional-grade report.</p>
+      </div>
+      <!-- Profile Modal -->
+      <div id="profileModal" class="profile-modal hidden">
+        <div class="profile-modal-content">
+          <div class="profile-modal-header">
+            <h3>👤 Edit Analyst Profile</h3>
+            <button id="closeProfileModal" class="close-btn">&times;</button>
+          </div>
+          <div class="profile-modal-body">
+            <div class="avatar-selection-zone">
+              <span class="sub-label">Select Avatar Preset</span>
+              <div class="avatar-presets">
+                <img class="avatar-preset active" data-img="https://i.pravatar.cc/150?img=11" src="https://i.pravatar.cc/150?img=11" />
+                <img class="avatar-preset" data-img="https://i.pravatar.cc/150?img=12" src="https://i.pravatar.cc/150?img=12" />
+                <img class="avatar-preset" data-img="https://i.pravatar.cc/150?img=47" src="https://i.pravatar.cc/150?img=47" />
+                <img class="avatar-preset" data-img="https://i.pravatar.cc/150?img=33" src="https://i.pravatar.cc/150?img=33" />
+              </div>
+              <input type="text" id="customAvatarUrl" placeholder="Or paste custom image URL..." />
+            </div>
+
+            <div class="profile-form-grid">
+              <div class="form-group">
+                <label for="profileName">Analyst Name</label>
+                <input type="text" id="profileName" value="L. Jenkins, CFA" />
+              </div>
+              <div class="form-group">
+                <label for="profileRole">Role / Title</label>
+                <input type="text" id="profileRole" value="Senior Equity Analyst" />
+              </div>
+              <div class="form-group">
+                <label for="profileInstitution">Institution</label>
+                <input type="text" id="profileInstitution" value="Apex Research" />
+              </div>
+              <div class="form-group">
+                <label for="profileBio">Coverage Bio</label>
+                <textarea id="profileBio" rows="3" placeholder="Investment coverage focus (e.g. Technology & Emerging Markets)..."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="profile-modal-footer">
+            <button id="cancelProfileBtn" class="btn btn-secondary">Cancel</button>
+            <button id="saveProfileBtn" class="btn btn-primary">Save Changes</button>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </body>
+</html>
