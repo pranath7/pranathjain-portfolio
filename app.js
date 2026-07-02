@@ -34,49 +34,84 @@ function setupSmoothScrolling() {
   });
 }
 
-// 2. Viewport Scroll Reveals using Intersection Observer
+// 2. Viewport Scroll Reveals using GSAP ScrollTrigger
 function setupScrollReveals() {
+  if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
+    // Fallback if GSAP is not loaded
+    document.querySelectorAll('.reveal-on-scroll').forEach(el => el.classList.add('reveal-visible'));
+    return;
+  }
+
+  // Register ScrollTrigger plugin
+  gsap.registerPlugin(ScrollTrigger);
+
   const revealElements = document.querySelectorAll('.reveal-on-scroll');
   
-  if ('IntersectionObserver' in window) {
-    const observerOptions = {
-      root: null, // Viewport
-      threshold: 0.08, // Trigger when 8% of the element is visible
-      rootMargin: "0px 0px -50px 0px" // Slightly trigger before entering bottom
-    };
-    
-    const observer = new IntersectionObserver((entries, observer) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('reveal-visible');
-          // Once animated in, stop observing
-          observer.unobserve(entry.target);
+  revealElements.forEach(el => {
+    gsap.fromTo(el, 
+      {
+        opacity: 0,
+        y: 40
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.85,
+        ease: "power2.out",
+        scrollTrigger: {
+          trigger: el,
+          start: "top 88%",
+          once: true
         }
-      });
-    }, observerOptions);
-    
-    revealElements.forEach(el => observer.observe(el));
-  } else {
-    // Fallback if browser doesn't support IntersectionObserver
-    revealElements.forEach(el => el.classList.add('reveal-visible'));
-  }
+      }
+    );
+  });
 }
 
-// 3. Hero Title Entrance Reveals on Load
+// 3. Hero Title Entrance Reveals on Load (GSAP timeline)
 function setupHeroEntrance() {
-  const heroName = document.querySelector('.hero-name');
-  const heroCursive = document.querySelector('.hero-cursive-title');
-  
-  if (heroName) {
-    setTimeout(() => {
-      heroName.classList.add('visible');
-    }, 150);
+  if (typeof gsap === 'undefined') {
+    // Fallback if GSAP is not loaded
+    const heroName = document.querySelector('.hero-name');
+    const heroCursive = document.querySelector('.hero-cursive-title');
+    if (heroName) heroName.classList.add('visible');
+    if (heroCursive) heroCursive.classList.add('visible');
+    return;
   }
-  
-  if (heroCursive) {
-    setTimeout(() => {
-      heroCursive.classList.add('visible');
-    }, 350);
+
+  const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
+
+  // 1. Header Navigation slide down
+  tl.fromTo('.header-nav', 
+    { opacity: 0, y: -30 }, 
+    { opacity: 1, y: 0, duration: 1 }
+  );
+
+  // 2. Hero Name Title slide up
+  if (document.querySelector('.hero-name')) {
+    tl.fromTo('.hero-name', 
+      { opacity: 0, y: 60 }, 
+      { opacity: 1, y: 0, duration: 1.1 },
+      "-=0.7"
+    );
+  }
+
+  // 3. Hero Cursive subtitle swing in
+  if (document.querySelector('.hero-cursive-title')) {
+    tl.fromTo('.hero-cursive-title', 
+      { opacity: 0, rotation: 10, y: 30 }, 
+      { opacity: 1, rotation: -2, y: 0, duration: 0.9, ease: "back.out(1.2)" },
+      "-=0.7"
+    );
+  }
+
+  // 4. Intro text block reveal
+  if (document.querySelector('.intro-statement-text')) {
+    tl.fromTo('.intro-statement-text', 
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 0.8 },
+      "-=0.5"
+    );
   }
 }
 
