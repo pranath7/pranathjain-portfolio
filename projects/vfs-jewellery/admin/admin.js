@@ -1492,7 +1492,6 @@ window.triggerAutoDesc = function(type, idx) {
     descEl.value = generateProductDescription(title, category);
     adminToast(`Description generated for Product ${idx + 1}!`);
   }
-  }
 };
 
 // ── VFS Returns Center Administration ──
