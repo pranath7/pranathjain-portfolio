@@ -18,6 +18,29 @@ const PRODUCTS = [
   { id: 12, name: 'Tennis Bracelet CZ', cat: 'bracelets', meta: 'Rose Gold', price: 1099, mrp: 2199, img: 'assets/bracelets.webp', rating: 4.8, reviews: 298, badge: 'Trending' },
 ];
 
+function getFullCatalog() {
+  const stored = localStorage.getItem('vfs_products');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  // Initialize with defaults and assign default SKUs if not present
+  const defaults = PRODUCTS.map((p, idx) => ({
+    ...p,
+    sku: p.sku || `SN-${String(idx + 1).padStart(4, '0')}`
+  }));
+  localStorage.setItem('vfs_products', JSON.stringify(defaults));
+  return defaults;
+}
+
+const CATEGORY_BANNERS = {
+  rings: { title: "Rings Collection", desc: "18K Gold Plated stackable bands and statement rings.", img: "assets/rings.webp" },
+  earrings: { title: "Earrings & Studs", desc: "A++ Austrian crystals that catch light beautifully.", img: "assets/earrings.webp" },
+  necklaces: { title: "Necklaces & Pendants", desc: "Elegant chains and pendants designed for layering.", img: "assets/necklaces.webp" },
+  bracelets: { title: "Bracelets & Bands", desc: "Dainty rope chains and classic tennis bracelets.", img: "assets/bracelets.webp" },
+  mangalsutra: { title: "Mangalsutra Edit", desc: "Traditional symbols crafted in modern luxury shapes.", img: "assets/necklaces.webp" },
+  anklets: { title: "Anklets & Toe Rings", desc: "Elegant daily-wear charms for your feet.", img: "assets/bracelets.webp" }
+};
+
 const TESTIMONIALS = [
   { name: 'Priya M.', text: 'The quality is amazing for this price! My friends thought it was real gold. The anti-tarnish coating really works — been wearing it daily for 3 months.', stars: 5 },
   { name: 'Ananya S.', text: 'Ordered the pendant set as a gift for my mom. The packaging was so premium, she was thrilled! The CZ stones genuinely sparkle.', stars: 5 },
@@ -112,39 +135,92 @@ window.addEventListener('scroll', () => {
   setInterval(() => goSlide((cur + 1) % slides.length), 5000);
 })();
 
-// ── Render Product Grid ──
+// ── Render Product Grid (Horizontal Scrolling Categories) ──
 function renderProducts(filter) {
-  const grid = $('#productGrid');
-  const list = filter && filter !== 'all' ? PRODUCTS.filter(p => p.cat === filter) : PRODUCTS;
+  const container = $('#categoryTracksContainer');
+  if (!container) return;
+  container.innerHTML = "";
 
-  grid.innerHTML = list.map(p => {
-    const isWL = wishlist.includes(p.id);
-    const off = pct(p.price, p.mrp);
-    return `
-      <div class="p-card" data-id="${p.id}">
-        ${p.badge ? `<span class="p-badge${p.badge === 'Sale' ? ' sale' : ''}">${p.badge}</span>` : ''}
-        <button class="p-wish${isWL ? ' active' : ''}" data-wl="${p.id}" aria-label="Wishlist">
-          <svg viewBox="0 0 24 24" fill="${isWL ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>
-        </button>
-        <div class="p-img">
-          <img src="${p.img}" alt="${p.name}" loading="lazy">
-          <div class="p-quick" data-add="${p.id}">Add to Cart</div>
-        </div>
-        <div class="p-info">
-          <div class="p-meta">${p.meta}</div>
-          <div class="p-name">${p.name}</div>
-          <div class="p-rating"><span class="stars">${stars(p.rating)}</span><span class="count">(${p.reviews})</span></div>
-          <div class="p-prices">
-            <span class="price-now">${fmt(p.price)}</span>
-            <span class="price-was">${fmt(p.mrp)}</span>
-            <span class="price-off">${off}% OFF</span>
+  const fullCatalog = getFullCatalog();
+  
+  let categories = [];
+  if (filter && filter !== 'all') {
+    categories = [filter];
+  } else {
+    // Extract unique categories present in the catalog dynamically
+    const uniqueCats = new Set(fullCatalog.map(p => p.cat).filter(Boolean));
+    categories = Array.from(uniqueCats);
+    
+    // Sort standard ones first
+    const standardOrder = ['rings', 'earrings', 'necklaces', 'bracelets', 'mangalsutra', 'anklets'];
+    categories.sort((a, b) => {
+      const idxA = standardOrder.indexOf(a);
+      const idxB = standardOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+  categories.forEach(cat => {
+    const list = fullCatalog.filter(p => p.cat === cat);
+    if (list.length === 0) return;
+
+    const bannerInfo = CATEGORY_BANNERS[cat] || { 
+      title: cat.charAt(0).toUpperCase() + cat.slice(1) + " Collection", 
+      desc: "Premium handcrafted VFS creations.", 
+      img: "assets/hero_banner.webp" 
+    };
+
+    const trackHtml = `
+      <div class="category-track-row" data-category="${cat}">
+        <!-- Category Banner -->
+        <div class="category-banner" style="background-image: url('${bannerInfo.img}')">
+          <div class="category-banner-overlay">
+            <h2>${bannerInfo.title}</h2>
+            <p>${bannerInfo.desc}</p>
           </div>
         </div>
-      </div>`;
-  }).join('');
+        
+        <!-- Horizontal Scroll Row -->
+        <div class="product-row-scroll" id="scrollRow_${cat}">
+          ${list.map(p => {
+            const isWL = wishlist.includes(p.id);
+            const isDiscounted = p.mrp && p.mrp > p.price;
+            const off = isDiscounted ? pct(p.price, p.mrp) : 0;
+            return `
+              <div class="p-card" data-id="${p.id}">
+                ${p.badge ? `<span class="p-badge${p.badge === 'Sale' ? ' sale' : ''}">${p.badge}</span>` : ''}
+                <button class="p-wish${isWL ? ' active' : ''}" data-wl="${p.id}" aria-label="Wishlist">
+                  <svg viewBox="0 0 24 24" fill="${isWL ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+                </button>
+                <div class="p-img">
+                  <img src="${p.img}" alt="${p.name}" loading="lazy">
+                  <div class="p-quick" data-add="${p.id}">Add to Cart</div>
+                </div>
+                <div class="p-info">
+                  <div class="p-meta">${p.meta}</div>
+                  <div class="p-name">${p.name}</div>
+                  <div class="p-rating"><span class="stars">${stars(p.rating)}</span><span class="count">(${p.reviews})</span></div>
+                  <div class="p-prices">
+                    <span class="price-now">${fmt(p.price)}</span>
+                    ${isDiscounted ? `
+                      <span class="price-was">${fmt(p.mrp)}</span>
+                      <span class="price-off">${off}% OFF</span>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    container.insertAdjacentHTML('beforeend', trackHtml);
+  });
 
-  // Wishlist buttons
-  grid.querySelectorAll('[data-wl]').forEach(btn => {
+  // Attach action event listeners to both wishlists, quick adds, and pdp modal triggers
+  container.querySelectorAll('[data-wl]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = +btn.dataset.wl;
@@ -161,16 +237,14 @@ function renderProducts(filter) {
     });
   });
 
-  // Quick add buttons
-  grid.querySelectorAll('[data-add]').forEach(btn => {
+  container.querySelectorAll('[data-add]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       addToCart(+btn.dataset.add);
     });
   });
 
-  // Card click triggers PDP
-  grid.querySelectorAll('.p-card').forEach(card => {
+  container.querySelectorAll('.p-card').forEach(card => {
     card.addEventListener('click', () => {
       const id = +card.dataset.id;
       openPDP(id);
@@ -200,12 +274,12 @@ $$('.mega-menu a[data-filter]').forEach(a => {
 });
 
 // ── Cart Logic ──
-function addToCart(id) {
+function addToCart(id, qty = 1) {
   const existing = cart.find(c => c.id === id);
   if (existing) {
-    existing.qty++;
+    existing.qty += qty;
   } else {
-    cart.push({ id, qty: 1 });
+    cart.push({ id, qty });
   }
   saveState();
   updateCounts();
@@ -226,9 +300,10 @@ function renderCart() {
 
   foot.style.display = '';
   let total = 0;
+  const fullCatalog = getFullCatalog();
 
   body.innerHTML = cart.map(ci => {
-    const p = PRODUCTS.find(x => x.id === ci.id);
+    const p = fullCatalog.find(x => x.id === ci.id);
     if (!p) return '';
     total += p.price * ci.qty;
     return `
@@ -296,8 +371,9 @@ function renderWishlist() {
     return;
   }
 
+  const fullCatalog = getFullCatalog();
   body.innerHTML = wishlist.map(id => {
-    const p = PRODUCTS.find(x => x.id === id);
+    const p = fullCatalog.find(x => x.id === id);
     if (!p) return '';
     return `
       <div class="dw-item" data-id="${p.id}">
@@ -340,13 +416,21 @@ function renderWishlist() {
 }
 
 // ── Testimonials ──
+// ── Google Reviews Auto-Scroll Marquee ──
 function renderTestimonials() {
-  const grid = $('#testGrid');
-  grid.innerHTML = TESTIMONIALS.slice(0, 3).map(t => `
-    <div class="test-card">
-      <div class="test-stars">${'★'.repeat(t.stars)}${'☆'.repeat(5 - t.stars)}</div>
-      <div class="test-text">"${t.text}"</div>
-      <div class="test-author">— ${t.name}</div>
+  const container = $('#googleReviewsMarquee');
+  if (!container) return;
+  
+  // Duplicate list to achieve continuous infinite scroll loop
+  const list = [...TESTIMONIALS, ...TESTIMONIALS];
+  container.innerHTML = list.map(t => `
+    <div class="review-marquee-card">
+      <div class="rev-card-head">
+        <span class="rev-card-name">${t.name}</span>
+        <span class="rev-card-badge">Verified Buyer</span>
+      </div>
+      <div class="rev-card-stars">★★★★★</div>
+      <div class="rev-card-text">"${t.text}"</div>
     </div>`).join('');
 }
 
@@ -416,7 +500,8 @@ $('#searchInput').addEventListener('input', (e) => {
   const results = $('#searchResults');
   if (!q) { results.innerHTML = ''; return; }
 
-  const matches = PRODUCTS.filter(p =>
+  const fullCatalog = getFullCatalog();
+  const matches = fullCatalog.filter(p =>
     p.name.toLowerCase().includes(q) ||
     p.cat.includes(q) ||
     p.meta.toLowerCase().includes(q)
@@ -443,41 +528,220 @@ $('#searchInput').addEventListener('input', (e) => {
 });
 
 // ── Pincode ──
-$('#openPin').addEventListener('click', () => {
-  $('#pinModal').classList.add('active');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => $('#pinInput').focus(), 100);
-});
+const openPinBtn = $('#openPin');
+if (openPinBtn) {
+  openPinBtn.addEventListener('click', () => {
+    $('#pinModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => $('#pinInput').focus(), 100);
+  });
+}
 
-$('#closePin').addEventListener('click', () => {
-  $('#pinModal').classList.remove('active');
-  document.body.style.overflow = '';
-});
-
-$('#pinModal').addEventListener('click', (e) => {
-  if (e.target === $('#pinModal')) {
+const closePinBtn = $('#closePin');
+if (closePinBtn) {
+  closePinBtn.addEventListener('click', () => {
     $('#pinModal').classList.remove('active');
     document.body.style.overflow = '';
-  }
-});
+  });
+}
 
-$('#checkPin').addEventListener('click', () => {
-  const val = $('#pinInput').value.trim();
-  const res = $('#pinResult');
-  if (!/^\d{6}$/.test(val)) {
-    res.className = 'pin-result err';
-    res.textContent = 'Please enter a valid 6-digit pincode';
+const pinModalEl = $('#pinModal');
+if (pinModalEl) {
+  pinModalEl.addEventListener('click', (e) => {
+    if (e.target === pinModalEl) {
+      pinModalEl.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+}
+
+const checkPinBtn = $('#checkPin');
+if (checkPinBtn) {
+  checkPinBtn.addEventListener('click', () => {
+    const val = $('#pinInput').value.trim();
+    const res = $('#pinResult');
+    if (!/^\d{6}$/.test(val)) {
+      res.className = 'pin-result err';
+      res.textContent = 'Please enter a valid 6-digit pincode';
+      return;
+    }
+    // Simulate check
+    const days = 2 + Math.floor(Math.random() * 4);
+    res.className = 'pin-result ok';
+    res.innerHTML = `✓ Delivery available! Estimated ${days}–${days + 2} business days.<br><span style="font-weight:700;color:var(--color-secondary)">Express Shipping: ₹200 applies!</span>`;
+  });
+}
+
+
+// ── Dynamic Checkout & Payments ──
+let activeCheckoutOrder = null;
+
+function openCheckout() {
+  if (!cart.length) {
+    toast('Your cart is empty! Add products first.');
     return;
   }
-  // Simulate check
-  const days = 2 + Math.floor(Math.random() * 4);
-  res.className = 'pin-result ok';
-  res.innerHTML = `✓ Delivery available! Estimated ${days}–${days + 2} business days.<br><span style="font-weight:400;color:#666">Free shipping on orders above ₹499</span>`;
+  closeDrawer('cart');
+  
+  // Show shipping form (step 1)
+  $('#coStep1').style.display = 'block';
+  $('#coStep2').style.display = 'none';
+  $('#coForm').reset();
+  
+  // Open checkout modal
+  $('#checkoutModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCheckout() {
+  $('#checkoutModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+$('#checkoutBtn').addEventListener('click', openCheckout);
+$('#closeCheckout').addEventListener('click', closeCheckout);
+$('#checkoutModal').addEventListener('click', (e) => {
+  if (e.target === $('#checkoutModal')) closeCheckout();
 });
 
-// ── Checkout ──
-$('#checkoutBtn').addEventListener('click', () => {
-  toast('Checkout coming soon! 🎉');
+// Checkout Step 1 Shipping form submission
+$('#coForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  
+  const fullCatalog = getFullCatalog();
+  let subtotal = 0;
+  
+  const itemsList = cart.map(ci => {
+    const p = fullCatalog.find(x => x.id === ci.id);
+    subtotal += p.price * ci.qty;
+    return { id: p.id, name: p.name, price: p.price, qty: ci.qty };
+  });
+  
+  const shippingCost = 200;
+  const grandTotal = subtotal + shippingCost;
+  
+  // Create Order Structure
+  const newOrder = {
+    id: '#VF-' + Math.floor(1000 + Math.random() * 9000),
+    date: new Date().toLocaleDateString('en-IN'),
+    name: $('#coName').value.trim(),
+    phone: $('#coPhone').value.trim(),
+    address: $('#coAddress').value.trim(),
+    city: $('#coCity').value.trim(),
+    pincode: $('#coPincode').value.trim(),
+    carrier: $('#coCarrier').value,
+    items: itemsList,
+    subtotal: subtotal,
+    shipping: shippingCost,
+    total: grandTotal,
+    status: 'unpaid', // unpaid/paid
+    trackingId: ''
+  };
+  
+  activeCheckoutOrder = newOrder;
+
+  // Render Step 2 Payment details
+  $('#coSumSubtotal').textContent = fmt(subtotal);
+  $('#coSumShipping').textContent = fmt(shippingCost);
+  $('#coSumTotal').textContent = fmt(grandTotal);
+  
+  // Create UPI URI using your real payment receiver details (8939086608@fam)
+  const upiURI = `upi://pay?pa=8939086608@fam&pn=VFS%20Jewels&am=${grandTotal}&cu=INR&tn=Order%20${newOrder.id}`;
+
+  // Use custom static QR code image uploaded by user
+  $('#coQRWrapper').innerHTML = `<img src="assets/payment_qr.png" alt="UPI QR Code" style="width:180px;height:180px;display:block;margin:0 auto;object-fit:contain;">`;
+  
+  // Detect mobile intent pay drawer support
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const mobilePayEl = $('#coMobilePayBtn');
+  if (isMobile) {
+    mobilePayEl.style.display = 'flex';
+    mobilePayEl.href = upiURI;
+  } else {
+    mobilePayEl.style.display = 'none';
+  }
+
+  // Display step 2
+  $('#coStep1').style.display = 'none';
+  $('#coStep2').style.display = 'block';
+});
+
+// Confirm and Order via WhatsApp
+$('#coConfirmBtn').addEventListener('click', () => {
+  if (!activeCheckoutOrder) return;
+  
+  // Add order to orders list in LocalStorage
+  const stored = localStorage.getItem('vfs_orders');
+  let ordersList = [];
+  if (stored) {
+    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
+  }
+  ordersList.push(activeCheckoutOrder);
+  localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+  
+  // Create Formatted WhatsApp Message
+  let itemsSummaryText = "";
+  activeCheckoutOrder.items.forEach((item, idx) => {
+    itemsSummaryText += `${idx+1}. *${item.name}* x ${item.qty} - ₹${item.price * item.qty}\n`;
+  });
+  
+  const waMessage = 
+`🌸 *VFS JEWELLERY - NEW ORDER* 🌸
+----------------------------------
+*Order ID:* ${activeCheckoutOrder.id}
+*Customer:* ${activeCheckoutOrder.name}
+*Phone:* ${activeCheckoutOrder.phone}
+*Address:* ${activeCheckoutOrder.address}, ${activeCheckoutOrder.city} - ${activeCheckoutOrder.pincode}
+*Carrier Partner:* ${activeCheckoutOrder.carrier}
+
+*Items Ordered:*
+${itemsSummaryText}
+----------------------------------
+*Subtotal:* ₹${activeCheckoutOrder.subtotal}
+*Delivery Fee:* ₹${activeCheckoutOrder.shipping}
+*Grand Total:* *₹${activeCheckoutOrder.total}*
+
+*Payment Method:* UPI Transfer
+----------------------------------
+_I have attached my UPI Transaction Screenshot below to verify payment._`;
+
+  const waLink = `https://wa.me/919840757363?text=${encodeURIComponent(waMessage)}`;
+  window.open(waLink, '_blank');
+  
+  // Populate Order Success Step UI elements
+  $('#successOrderId').textContent = activeCheckoutOrder.id;
+  $('#successOrderTotal').textContent = fmt(activeCheckoutOrder.total);
+
+  // Show Success step
+  $('#coStep2').style.display = 'none';
+  $('#coStep3').style.display = 'block';
+
+  // Attach open link event to the success button
+  const waBtn = $('#successWaBtn');
+  const newWaBtn = waBtn.cloneNode(true);
+  waBtn.parentNode.replaceChild(newWaBtn, waBtn);
+  newWaBtn.addEventListener('click', () => {
+    window.open(waLink, '_blank');
+  });
+
+  // Attach close listener to success close button
+  const closeBtn = $('#successCloseBtn');
+  const newCloseBtn = closeBtn.cloneNode(true);
+  closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+  newCloseBtn.addEventListener('click', () => {
+    closeCheckout();
+    setTimeout(() => {
+      $('#coStep1').style.display = 'block';
+      $('#coStep2').style.display = 'none';
+      $('#coStep3').style.display = 'none';
+    }, 400);
+  });
+
+  // Reset cart
+  cart = [];
+  saveState();
+  updateCounts();
+  toast('Order placed! Opening WhatsApp to send payment screenshot 🌸');
 });
 
 // ── Newsletter ──
@@ -494,90 +758,141 @@ document.addEventListener('keydown', (e) => {
     $('#pinModal').classList.remove('active');
     closePDP();
     closeStoreLocator();
+    closeGuideModal();
     closeDrawer('cart');
     closeDrawer('wl');
   }
 });
 
 // ── PDP Overlay Logic ──
+let currentPdpScrollListener = null;
+
 function openPDP(id) {
-  const p = PRODUCTS.find(x => x.id === id);
+  const p = getFullCatalog().find(x => x.id === id);
   if (!p) return;
 
   const overlay = $('#pdpOverlay');
+  if (currentPdpScrollListener) {
+    overlay.removeEventListener('scroll', currentPdpScrollListener);
+  }
   
   // 1. Image Gallery
   const mainImgContainer = $('#pdpMainImg');
-  mainImgContainer.innerHTML = `<img id="pdpMainImgEl" src="${p.img}" alt="${p.name}">`;
+  
+  // Resolve image list
+  let images = [];
+  if (p.imgs && Array.isArray(p.imgs)) {
+    images = p.imgs;
+  } else if (p.img) {
+    images = [
+      p.img,
+      'assets/hero_banner.webp',
+      p.img
+    ];
+  } else {
+    images = ['assets/hero_banner.webp'];
+  }
+  
+  // Render scrollable images slider
+  mainImgContainer.innerHTML = `
+    <div class="pdp-images-slider" style="display:flex; overflow-x:auto; scroll-snap-type:x mandatory; width:100%; height:100%; scrollbar-width:none; -ms-overflow-style:none;">
+      ${images.map((imgSrc, idx) => `
+        <img src="${imgSrc}" alt="${p.name} - Image ${idx+1}" style="flex:0 0 100%; width:100%; height:100%; object-fit:cover; scroll-snap-align:start;">
+      `).join('')}
+    </div>
+  `;
 
   const thumbsContainer = $('#pdpThumbs');
-  const images = [
-    p.img,
-    'assets/hero_banner.webp',
-    p.img
-  ];
-  
   thumbsContainer.innerHTML = images.map((imgSrc, idx) => `
     <div class="pdp-thumb ${idx === 0 ? 'active' : ''}" data-idx="${idx}">
       <img src="${imgSrc}" alt="${p.name} - Angle ${idx + 1}">
     </div>
   `).join('');
 
+  const slider = mainImgContainer.querySelector('.pdp-images-slider');
   thumbsContainer.querySelectorAll('.pdp-thumb').forEach(thumb => {
     thumb.addEventListener('click', () => {
       thumbsContainer.querySelectorAll('.pdp-thumb').forEach(t => t.classList.remove('active'));
       thumb.classList.add('active');
       const idx = +thumb.dataset.idx;
-      $('#pdpMainImgEl').src = images[idx];
+      slider.scrollTo({ left: slider.clientWidth * idx, behavior: 'smooth' });
+    });
+  });
+  
+  slider.addEventListener('scroll', () => {
+    const idx = Math.round(slider.scrollLeft / slider.clientWidth);
+    thumbsContainer.querySelectorAll('.pdp-thumb').forEach((t, i) => {
+      t.classList.toggle('active', i === idx);
     });
   });
 
   // 2. Details Info
   const isWL = wishlist.includes(p.id);
-  const off = pct(p.price, p.mrp);
+  const isDiscounted = p.mrp && p.mrp > p.price;
+  const off = isDiscounted ? pct(p.price, p.mrp) : 0;
   const infoContainer = $('#pdpInfo');
   
+  const catLabel = p.cat ? p.cat.charAt(0).toUpperCase() + p.cat.slice(1) : 'Jewellery';
+  const sku = `ZU1-${p.id}`;
+  
   infoContainer.innerHTML = `
-    <span class="pdp-meta">${p.meta} • 18K Plated</span>
-    <h1 class="pdp-title">${p.name}</h1>
-    <div class="pdp-rating">
-      <span class="pdp-rating-stars">${stars(p.rating)}</span>
-      <span class="pdp-rating-count">(${p.reviews} Reviews)</span>
-    </div>
+    <h1 class="pdp-title">${p.name} ( ${sku} )</h1>
     
     <div class="pdp-price-box">
       <span class="pdp-price-now">${fmt(p.price)}</span>
-      <span class="pdp-price-was">${fmt(p.mrp)}</span>
-      <span class="pdp-price-off">${off}% OFF</span>
+      ${isDiscounted ? `
+        <span class="pdp-price-was">${fmt(p.mrp)}</span>
+        <span class="pdp-price-off">${off}% OFF</span>
+      ` : ''}
     </div>
     
-    <p class="pdp-desc">
-      Upgrade your styling with this premium handcrafted VFS creation. Featuring a brilliant A++ Austrian CZ crystal centerpiece that captures light like real diamonds. Built with hypoallergenic, nickel-free brass alloy and finished with a 365-day anti-tarnish protective shield.
+    <div class="pdp-swipe-helper">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m17 7 5 5-5 5M7 7l-5 5 5 5M2 12h20"/></svg>
+      <span>Swipe to see more products</span>
+    </div>
+    
+    <div class="pdp-qty-cart-row">
+      <div class="pdp-qty-selector">
+        <button id="pdpQtyDec" class="pdp-qty-btn">−</button>
+        <input type="number" id="pdpQtyInput" class="pdp-qty-input" value="1" min="1" readonly>
+        <button id="pdpQtyInc" class="pdp-qty-btn">+</button>
+      </div>
+      <button class="pdp-btn-add-new" id="pdpBtnAdd" data-id="${p.id}">
+        ADD TO CART
+      </button>
+    </div>
+    
+    <div class="pdp-wishlist-row">
+      <button class="pdp-btn-wish-text ${isWL ? 'active' : ''}" id="pdpBtnWish" data-id="${p.id}">
+        <svg class="pdp-wish-icon" viewBox="0 0 24 24" fill="${isWL ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>
+        <span id="pdpWishText">${isWL ? 'Added to wishlist' : 'Add to wishlist'}</span>
+      </button>
+    </div>
+    
+    <hr class="pdp-divider">
+    
+    <div class="pdp-metadata-block">
+      <div class="pdp-meta-item"><strong>SKU:</strong> <span class="pdp-meta-val">${sku}</span></div>
+      <div class="pdp-meta-item"><strong>Categories:</strong> <span class="pdp-meta-val">${catLabel}, VFS Jewellery</span></div>
+    </div>
+    
+    <div class="pdp-share-block">
+      <strong>Share:</strong>
+      <div class="pdp-share-links" id="pdpShareLinks">
+        <!-- Dynamically filled with hrefs -->
+      </div>
+    </div>
+    
+    <p class="pdp-desc" style="margin-top: 24px;">
+      Upgrade your styling with this premium handcrafted VFS creation. Featuring a brilliant A++ Austrian CZ crystal centerpiece that captures light like real diamonds. Built with hypoallergenic, nickel-free brass alloy and finished with an anti-tarnish protective shield.
     </p>
     
-    <div class="pdp-spec-list">
-      <div class="pdp-spec-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>365-Day Anti-Tarnish</div>
-      <div class="pdp-spec-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10Z"/><path d="m9 12 2 2 4-4"/></svg>Skin Safe & Nickel-Free</div>
-      <div class="pdp-spec-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M11 3 8 9l4 13 4-13-3-6"/><path d="M2 9h20"/></svg>Premium Austrian CZ</div>
-      <div class="pdp-spec-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8Z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>Free Delivery & COD</div>
-    </div>
-    
-    <label class="pdp-gift-wrap">
+    <label class="pdp-gift-wrap" style="margin-top: 16px;">
       <input type="checkbox" id="pdpGiftWrap">
       <span>Add Premium VFS Gift Box & Ribbon (+₹49)</span>
     </label>
     
-    <div class="pdp-actions">
-      <button class="pdp-btn-add" id="pdpBtnAdd" data-id="${p.id}">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-        Add to Cart
-      </button>
-      <button class="pdp-btn-wish ${isWL ? 'active' : ''}" id="pdpBtnWish" data-id="${p.id}" aria-label="Wishlist">
-        <svg viewBox="0 0 24 24" fill="${isWL ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/></svg>
-      </button>
-    </div>
-    
-    <div class="pdp-delivery">
+    <div class="pdp-delivery" style="margin-top: 20px;">
       <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>Delivery Availability Check</h4>
       <div class="pdp-delivery-checker">
         <input type="text" placeholder="Enter Pincode" id="pdpPinInput" maxlength="6">
@@ -588,25 +903,45 @@ function openPDP(id) {
   `;
 
   // Attach action event listeners
+  const qtyInput = $('#pdpQtyInput');
+  const btnDec = $('#pdpQtyDec');
+  const btnInc = $('#pdpQtyInc');
+  
+  btnDec.addEventListener('click', () => {
+    let currentVal = parseInt(qtyInput.value) || 1;
+    if (currentVal > 1) {
+      qtyInput.value = currentVal - 1;
+    }
+  });
+  
+  btnInc.addEventListener('click', () => {
+    let currentVal = parseInt(qtyInput.value) || 1;
+    qtyInput.value = currentVal + 1;
+  });
+
   $('#pdpBtnAdd').addEventListener('click', () => {
     const isGiftChecked = $('#pdpGiftWrap').checked;
-    addToCart(p.id);
+    const qty = parseInt(qtyInput.value) || 1;
+    addToCart(p.id, qty);
     if (isGiftChecked) {
       addGiftWrapToCart();
     }
   });
 
   const btnWish = $('#pdpBtnWish');
+  const wishTextSpan = $('#pdpWishText');
   btnWish.addEventListener('click', () => {
     if (wishlist.includes(p.id)) {
       wishlist = wishlist.filter(x => x !== p.id);
       btnWish.classList.remove('active');
       btnWish.querySelector('svg').setAttribute('fill', 'none');
+      wishTextSpan.textContent = 'Add to wishlist';
       toast('Removed from wishlist');
     } else {
       wishlist.push(p.id);
       btnWish.classList.add('active');
       btnWish.querySelector('svg').setAttribute('fill', 'currentColor');
+      wishTextSpan.textContent = 'Added to wishlist';
       toast('Added to wishlist ♡');
     }
     saveState();
@@ -627,12 +962,65 @@ function openPDP(id) {
     res.innerHTML = `✓ Delivery available! Estimated ${days}–${days + 2} business days.`;
   });
 
-  // 3. Related Products
+  // Setup Social Sharing links dynamically
+  (function setupSharing() {
+    const shareUrl = window.location.origin + window.location.pathname + '#product/' + p.id;
+    const shareTitle = `${p.name} (SKU: ${sku})`;
+    const shareImgUrl = window.location.origin + '/' + p.img;
+    
+    const waLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareTitle + ' - ' + shareUrl)}`;
+    const fbLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    const twitterLink = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`;
+    const pinLink = `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(shareUrl)}&media=${encodeURIComponent(shareImgUrl)}&description=${encodeURIComponent(shareTitle)}`;
+    const liLink = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+    const tgLink = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareTitle)}`;
+
+    $('#pdpShareLinks').innerHTML = `
+      <a href="${waLink}" class="share-icon share-whatsapp" title="Share on WhatsApp" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.458 5.704 1.46h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      </a>
+      <a href="${fbLink}" class="share-icon share-facebook" title="Share on Facebook" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+      </a>
+      <a href="${twitterLink}" class="share-icon share-twitter" title="Share on X (Twitter)" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      </a>
+      <a href="${pinLink}" class="share-icon share-pinterest" title="Share on Pinterest" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.162-.105-.948-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.72-.359-1.781c0-1.663.967-2.907 2.17-2.907 1.025 0 1.52.771 1.52 1.691 0 1.031-.655 2.572-.994 4.002-.285 1.195.592 2.171 1.769 2.171 2.124 0 3.758-2.242 3.758-5.479 0-2.861-2.062-4.86-5.005-4.86-3.411 0-5.413 2.561-5.413 5.199 0 1.03.398 2.13.893 2.73.1.12.11.23.07.38l-.361 1.47a.28.28 0 0 1-.399.17c-1.395-.65-2.268-2.69-2.268-4.329 0-3.52 2.561-6.757 7.382-6.757 3.87 0 6.878 2.757 6.878 6.444 0 3.843-2.42 6.937-5.78 6.937-1.128 0-2.19-.586-2.553-1.282 0 0-.558 2.122-.693 2.647-.254.981-.944 2.21-1.408 2.962 1.122.33 2.309.509 3.538.509 6.62 0 11.988-5.367 11.988-11.987C24.006 5.367 18.637 0 12.017 0z"/></svg>
+      </a>
+      <a href="${liLink}" class="share-icon share-linkedin" title="Share on LinkedIn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
+      <a href="${tgLink}" class="share-icon share-telegram" title="Share on Telegram" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18.717-.962 4.084-1.362 5.75-.168.706-.525.943-.775.966-.55.051-1.07-.312-1.602-.662-.832-.546-1.301-.884-2.113-1.42-.938-.617-.33-1.025.205-1.58.14-.145 2.569-2.355 2.616-2.559.006-.025.01-.12-.047-.171-.059-.051-.144-.035-.207-.021-.09.02-1.517.962-4.283 2.831-.405.278-.772.414-1.102.406-.364-.008-1.062-.206-1.582-.375-.638-.207-1.144-.317-1.1-.67.023-.184.275-.373.755-.568 2.955-1.285 4.925-2.134 5.91-2.547 2.812-1.173 3.397-1.377 3.778-1.384.084-.002.273.019.395.12.103.085.132.203.143.29-.001.059-.012.222-.023.327z"/></svg>
+      </a>
+    `;
+  })();
+
+  // 3. Related Products (Infinite scroll Recommendations)
   const relatedContainer = $('#pdpRelated');
-  const relatedProducts = PRODUCTS.filter(x => x.cat === p.cat && x.id !== p.id).slice(0, 4);
+  relatedContainer.innerHTML = "";
   
-  if (relatedProducts.length > 0) {
-    relatedContainer.innerHTML = relatedProducts.map(rp => {
+  let recommendedIndex = 0;
+  function appendRecommendations() {
+    const fullCatalog = getFullCatalog();
+    const catProducts = fullCatalog.filter(x => x.cat === p.cat && x.id !== p.id);
+    if (!catProducts.length) {
+      if (relatedContainer.children.length === 0) {
+        relatedContainer.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#999;padding:24px;">No related items found</p>`;
+      }
+      return;
+    }
+    
+    const batchSize = 4;
+    const nextBatch = [];
+    for (let i = 0; i < batchSize; i++) {
+      const prod = catProducts[(recommendedIndex + i) % catProducts.length];
+      nextBatch.push(prod);
+    }
+    recommendedIndex = (recommendedIndex + batchSize) % catProducts.length;
+    
+    const html = nextBatch.map(rp => {
       const isRpWL = wishlist.includes(rp.id);
       const rpOff = pct(rp.price, rp.mrp);
       return `
@@ -657,16 +1045,19 @@ function openPDP(id) {
           </div>
         </div>`;
     }).join('');
-
-    relatedContainer.querySelectorAll('.p-card').forEach(card => {
+    
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    
+    wrapper.querySelectorAll('.p-card').forEach(card => {
       card.addEventListener('click', () => {
         const rId = +card.dataset.id;
         openPDP(rId);
         overlay.scrollTo({ top: 0, behavior: 'smooth' });
       });
     });
-
-    relatedContainer.querySelectorAll('[data-wl]').forEach(btn => {
+    
+    wrapper.querySelectorAll('[data-wl]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const wlId = +btn.dataset.wl;
@@ -679,27 +1070,170 @@ function openPDP(id) {
         }
         saveState();
         updateCounts();
-        openPDP(p.id);
+        btn.classList.toggle('active');
+        btn.querySelector('svg').setAttribute('fill', wishlist.includes(wlId) ? 'currentColor' : 'none');
       });
     });
-
-    relatedContainer.querySelectorAll('[data-add]').forEach(btn => {
+    
+    wrapper.querySelectorAll('[data-add]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         addToCart(+btn.dataset.add);
       });
     });
-  } else {
-    relatedContainer.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#999;padding:24px;">No related items found</p>`;
+    
+    while (wrapper.firstChild) {
+      relatedContainer.appendChild(wrapper.firstChild);
+    }
   }
+
+  // Populate first 8 items
+  appendRecommendations();
+  appendRecommendations();
+
+  // Scroll listener on PDP overlay for infinite recommendations
+  currentPdpScrollListener = () => {
+    if (overlay.scrollTop + overlay.clientHeight >= overlay.scrollHeight - 150) {
+      appendRecommendations();
+    }
+  };
+  overlay.addEventListener('scroll', currentPdpScrollListener);
 
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
+
+  // Swipe / Drag product navigation below the image area
+  const infoEl = $('#pdpInfo');
+  let pdpTouchStartX = 0;
+  let pdpTouchStartY = 0;
+  let pdpIsDragging = false;
+  
+  infoEl.ontouchstart = (e) => {
+    pdpTouchStartX = e.changedTouches[0].screenX;
+    pdpTouchStartY = e.changedTouches[0].screenY;
+  };
+  
+  infoEl.ontouchend = (e) => {
+    const endX = e.changedTouches[0].screenX;
+    const endY = e.changedTouches[0].screenY;
+    handlePdpSwipe(pdpTouchStartX, endX, pdpTouchStartY, endY, p.id);
+  };
+  
+  infoEl.onmousedown = (e) => {
+    pdpTouchStartX = e.screenX;
+    pdpTouchStartY = e.screenY;
+    pdpIsDragging = true;
+  };
+  
+  infoEl.onmouseup = (e) => {
+    if (!pdpIsDragging) return;
+    pdpIsDragging = false;
+    handlePdpSwipe(pdpTouchStartX, e.screenX, pdpTouchStartY, e.screenY, p.id);
+  };
 }
 
 function closePDP() {
-  $('#pdpOverlay').classList.remove('active');
+  const overlay = $('#pdpOverlay');
+  overlay.classList.remove('active');
   document.body.style.overflow = '';
+  if (currentPdpScrollListener) {
+    overlay.removeEventListener('scroll', currentPdpScrollListener);
+    currentPdpScrollListener = null;
+  }
+  const pdpContainer = document.querySelector('.pdp-container');
+  if (pdpContainer) {
+    pdpContainer.style.transform = '';
+    pdpContainer.style.transition = '';
+    pdpContainer.style.opacity = '';
+    pdpContainer.removeAttribute('data-animating');
+  }
+}
+
+// ── PDP Swipe Navigation Helper ──
+function handlePdpSwipe(startX, endX, startY, endY, currentProductId) {
+  const diffX = endX - startX;
+  const diffY = endY - startY;
+  
+  if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+    const p = getFullCatalog().find(x => x.id === currentProductId);
+    if (!p) return;
+    
+    const catProducts = getFullCatalog().filter(x => x.cat === p.cat);
+    if (catProducts.length <= 1) return;
+    
+    const curIdx = catProducts.findIndex(x => x.id === currentProductId);
+    let newIdx = curIdx;
+    let direction = ''; // 'left' or 'right'
+    
+    if (diffX < 0) {
+      newIdx = (curIdx + 1) % catProducts.length; // Next product
+      direction = 'left';
+    } else {
+      newIdx = (curIdx - 1 + catProducts.length) % catProducts.length; // Prev product
+      direction = 'right';
+    }
+    
+    const nextProduct = catProducts[newIdx];
+    if (nextProduct) {
+      const pdpContainer = document.querySelector('.pdp-container');
+      const pdpOverlay = $('#pdpOverlay');
+      if (!pdpContainer) return;
+      
+      // Prevent swiping while animating
+      if (pdpContainer.dataset.animating === 'true') return;
+      pdpContainer.dataset.animating = 'true';
+      
+      // Set transition style
+      pdpContainer.style.transition = 'transform 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.22s ease-out';
+      
+      // Slide OUT
+      pdpContainer.style.opacity = '0';
+      if (direction === 'left') {
+        pdpContainer.style.transform = 'translateX(-100%)';
+      } else {
+        pdpContainer.style.transform = 'translateX(100%)';
+      }
+      
+      // After slide out completes (220ms)
+      setTimeout(() => {
+        // Render new product details
+        openPDP(nextProduct.id);
+        
+        // Scroll overlay scrollbar back to top
+        if (pdpOverlay) pdpOverlay.scrollTo({ top: 0 });
+        
+        const newPdpContainer = document.querySelector('.pdp-container');
+        if (!newPdpContainer) return;
+        
+        // Mark as animating to prevent click interactions during transition
+        newPdpContainer.dataset.animating = 'true';
+        
+        // Teleport to the opposite side offscreen instantly
+        newPdpContainer.style.transition = 'none';
+        if (direction === 'left') {
+          newPdpContainer.style.transform = 'translateX(100%)';
+        } else {
+          newPdpContainer.style.transform = 'translateX(-100%)';
+        }
+        newPdpContainer.style.opacity = '0';
+        
+        // Force browser layout update
+        newPdpContainer.offsetWidth;
+        
+        // Slide IN to center view smoothly
+        newPdpContainer.style.transition = 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.25s ease-out';
+        newPdpContainer.style.transform = 'translateX(0)';
+        newPdpContainer.style.opacity = '1';
+        
+        // Clean up animation flags
+        setTimeout(() => {
+          newPdpContainer.style.transition = '';
+          newPdpContainer.removeAttribute('data-animating');
+        }, 260);
+        
+      }, 220);
+    }
+  }
 }
 
 function addGiftWrapToCart() {
@@ -985,6 +1519,53 @@ const closeVCModalBtn = $('#closeVCModal');
 if (closeVCModalBtn) {
   closeVCModalBtn.addEventListener('click', closeVCModal);
 }
+
+// ── How to Order Guide Modal Logic ──
+function openGuideModal() {
+  const modal = $('#guideModal');
+  if (modal) {
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeGuideModal() {
+  const modal = $('#guideModal');
+  if (modal) {
+    modal.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+}
+
+window.closeGuideAndOpenVC = function() {
+  closeGuideModal();
+  setTimeout(openVCModal, 300);
+};
+
+const openGuideBtn = $('#openGuideBtn');
+if (openGuideBtn) {
+  openGuideBtn.addEventListener('click', openGuideModal);
+}
+const closeGuideModalBtn = $('#closeGuideModal');
+if (closeGuideModalBtn) {
+  closeGuideModalBtn.addEventListener('click', closeGuideModal);
+}
+const backToShopBtn = $('#btnBackToShopFromGuide');
+if (backToShopBtn) {
+  backToShopBtn.addEventListener('click', closeGuideModal);
+}
+const guideToVCBtn = $('#guideToVCBtn');
+if (guideToVCBtn) {
+  guideToVCBtn.addEventListener('click', window.closeGuideAndOpenVC);
+}
+const guideModalEl = $('#guideModal');
+if (guideModalEl) {
+  guideModalEl.addEventListener('click', (e) => {
+    if (e.target === guideModalEl) {
+      closeGuideModal();
+    }
+  });
+}
 const vcModalEl = $('#vcModal');
 if (vcModalEl) {
   vcModalEl.addEventListener('click', (e) => {
@@ -1024,7 +1605,722 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ── Customer Order Tracking Overlay ──
+const footerTrackOrderBtn = $('#footerTrackOrder');
+if (footerTrackOrderBtn) {
+  footerTrackOrderBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#trackingOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+const headerTrackBtn = $('#openTracking');
+if (headerTrackBtn) {
+  headerTrackBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    $('#trackingOverlay').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+const closeTrackingBtn = $('#closeTracking');
+if (closeTrackingBtn) {
+  closeTrackingBtn.addEventListener('click', () => {
+    $('#trackingOverlay').classList.remove('active');
+    document.body.style.overflow = '';
+  });
+}
+
+const btnTrackOrder = $('#btnTrackOrder');
+if (btnTrackOrder) {
+  btnTrackOrder.addEventListener('click', () => {
+    const orderId = $('#trackInput').value.trim();
+    const detailsContainer = $('#trackingDetails');
+    if (!orderId) {
+      toast('Please enter an Order ID');
+      return;
+    }
+    
+    const stored = localStorage.getItem('vfs_orders');
+    let ordersList = [];
+    if (stored) {
+      try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
+    }
+    
+    const order = ordersList.find(o => o.id.toLowerCase() === orderId.toLowerCase());
+    
+    if (!order) {
+      detailsContainer.style.display = 'block';
+      detailsContainer.innerHTML = `
+        <div style="text-align:center;padding:20px;color:var(--color-error);font-size:1.5rem;font-weight:700;">
+          ⚠ Order ID not found. Please check your spelling or verify payment screenshot.
+        </div>
+      `;
+      return;
+    }
+    
+    // Render stepper progress and order info
+    let activeStep = 1; // 1: Confirmed
+    if (order.status === 'paid') activeStep = 2; // 2: Paid
+    if (order.trackingId) activeStep = 3; // 3: Shipped
+    if (order.status === 'delivered') activeStep = 5; // 5: Delivered
+    
+    let linePct = 0;
+    if (activeStep === 2) linePct = 25;
+    if (activeStep === 3) linePct = 50;
+    if (activeStep === 4) linePct = 75;
+    if (activeStep === 5) linePct = 100;
+    
+    const step1Active = 'active';
+    const step2Active = activeStep >= 2 ? 'active' : '';
+    const step3Active = activeStep >= 3 ? 'active' : '';
+    const step4Active = activeStep >= 4 ? 'active' : '';
+    const step5Active = activeStep >= 5 ? 'active' : '';
+    
+    const itemsText = order.items.map(item => `
+      <div style="display:flex;justify-content:space-between;font-size:1.3rem;margin-bottom:6px;border-bottom:1px dashed #eee;padding-bottom:6px;">
+        <span>${item.name} <strong>x ${item.qty}</strong></span>
+        <span>${fmt(item.price * item.qty)}</span>
+      </div>
+    `).join('');
+    
+    const trackingDetailsHtml = `
+      <div class="tracking-container">
+        <div class="tracking-info-grid">
+          <div class="tracking-info-block">
+            <p><strong>Order ID:</strong> ${order.id}</p>
+            <p><strong>Order Date:</strong> ${order.date}</p>
+            <p><strong>Shipping Status:</strong> <span style="text-transform:uppercase;font-weight:700;color:${order.trackingId ? '#27ae60' : '#f39c12'}">${order.trackingId ? 'Shipped' : 'Pending Shipment'}</span></p>
+          </div>
+          <div class="tracking-info-block">
+            <p><strong>Customer:</strong> ${order.name}</p>
+            <p><strong>Carrier:</strong> ${order.carrier}</p>
+            <p><strong>Payment Status:</strong> <span style="text-transform:uppercase;font-weight:700;color:${order.status === 'paid' ? '#27ae60' : '#d9534f'}">${order.status}</span></p>
+          </div>
+        </div>
+        
+        <!-- Stepper Progress -->
+        <div class="stepper-container">
+          <div class="stepper-line"><div class="stepper-line-progress" style="width: ${linePct}%"></div></div>
+          
+          <div class="step-node ${step1Active}">
+            1
+            <div class="step-label">Confirmed</div>
+          </div>
+          <div class="step-node ${step2Active}">
+            2
+            <div class="step-label">Paid</div>
+          </div>
+          <div class="step-node ${step3Active}">
+            3
+            <div class="step-label">Shipped</div>
+          </div>
+          <div class="step-node ${step4Active}">
+            4
+            <div class="step-label">In Transit</div>
+          </div>
+          <div class="step-node ${step5Active}">
+            5
+            <div class="step-label">Delivered</div>
+          </div>
+        </div>
+        
+        <!-- Items Summary -->
+        <div style="margin-top:30px;text-align:left;">
+          <h4 style="font-size:1.5rem;margin-bottom:12px;text-transform:uppercase;color:var(--color-primary-70);">Items Summary</h4>
+          ${itemsText}
+          <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.5rem;margin-top:12px;color:var(--color-secondary);">
+            <span>Total Paid/Payable:</span>
+            <span>${fmt(order.total)}</span>
+          </div>
+        </div>
+        
+        <!-- Shipping Carrier / Barcode Details -->
+        ${order.trackingId ? `
+          <div style="margin-top:30px;background:var(--color-primary-10);border:1px dashed var(--color-secondary);padding:20px;border-radius:var(--rounded-md);text-align:left;">
+            <h4 style="font-size:1.5rem;margin-bottom:10px;text-transform:uppercase;color:var(--color-secondary);font-weight:700;">Carrier Info: ${order.carrier}</h4>
+            <p style="font-size:1.35rem;margin-bottom:12px;">Your order has been shipped via <strong>${order.carrier}</strong> with tracking number: <strong style="font-size:1.45rem">${order.trackingId}</strong>.</p>
+            
+            <!-- Barcode simulation -->
+            <div style="display:inline-block;padding:10px;background:#fff;border:1px solid #ccc;margin-bottom:12px;">
+              <div style="display:flex;height:40px;align-items:stretch;width:180px;">
+                ${Array.from({length: 30}).map(() => {
+                  const width = [1, 2, 3, 4][Math.floor(Math.random() * 4)];
+                  const space = [1, 2, 3][Math.floor(Math.random() * 3)];
+                  return `<div style="background:#000;width:${width}px;margin-right:${space}px;"></div>`;
+                }).join('')}
+              </div>
+              <div style="font-family:monospace;font-size:1.1rem;text-align:center;letter-spacing:4px;margin-top:4px;">${order.trackingId}</div>
+            </div>
+            
+            <div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;">
+              <a href="https://www.google.com/search?q=${order.carrier}+tracking+${order.trackingId}" target="_blank" rel="noopener" class="btn-primary" style="display:inline-block;padding:8px 20px;font-size:1.2rem;text-decoration:none;">
+                Track on Official Site →
+              </a>
+              <button onclick="downloadCustomerInvoicePDF('${order.id}')" class="btn-primary" style="display:inline-block;padding:8px 20px;font-size:1.2rem;background:#27ae60;border:none;cursor:pointer;">
+                Download Invoice PDF 📄
+              </button>
+            </div>
+            
+            <!-- VFS Returns Centre Module -->
+            <div class="return-centre-box" style="margin-top:30px;border-top:1px dashed #ccc;padding-top:20px;">
+              <h4 style="font-size:1.5rem;margin-bottom:10px;text-transform:uppercase;color:var(--color-secondary);font-weight:700;">🔄 VFS Returns Centre</h4>
+              
+              ${order.returnStatus === 'pending' ? `
+                <div style="background:#fffaf0;border:1px solid #f0ad4e;color:#c0392b;padding:15px;border-radius:var(--rounded-md);font-size:1.3rem;">
+                  ⏳ <strong>Return Requested: Awaiting Verification</strong><br>
+                  We have received your unboxing video and invoice screenshot. Our verification team is checking the details. Upon defect confirmation, your refund will be credited directly as points to your wallet!
+                </div>
+              ` : order.returnStatus === 'approved' ? `
+                <div style="background:#eafaf1;border:1px solid #2ecc71;color:#27ae60;padding:15px;border-radius:var(--rounded-md);font-size:1.3rem;">
+                  ✅ <strong>Return Approved: Store Credits Granted</strong><br>
+                  Your return request was approved! Credit points representing your full refund value have been added to your account wallet.
+                </div>
+              ` : order.returnStatus === 'rejected' ? `
+                <div style="background:#fdf2f2;border:1px solid #f8d7da;color:#c53030;padding:15px;border-radius:var(--rounded-md);font-size:1.3rem;">
+                  ❌ <strong>Return Request Declined</strong><br>
+                  Our validation team could not confirm the defect from the unboxing video provided. For disputes, please contact us on WhatsApp.
+                </div>
+              ` : `
+                <!-- No return requested yet -->
+                <p style="font-size:1.3rem;color:#666;margin-bottom:16px;line-height:1.5;">
+                  To request a return, you must upload a **photo of your invoice** (downloaded above) and a **continuous unboxing video** recorded when receiving the parcel.
+                </p>
+                <button onclick="toggleReturnForm()" class="btn-primary" style="background:#121212;color:#D4AF37;border:1px solid #D4AF37;padding:8px 20px;font-size:1.2rem;cursor:pointer;">
+                  Request a Return
+                </button>
+                
+                <form id="returnsSubmitForm" style="display:none;margin-top:20px;background:#fcfcfc;padding:20px;border:1px dashed #ddd;border-radius:var(--rounded-md);" onsubmit="submitReturnRequest(event, '${order.id}', '${order.phone}')">
+                  <!-- Test/Debug helper -->
+                  <a href="#" id="btnAutofillReturnProofs" onclick="autofillReturnProofs(event)" style="font-size:1.15rem;color:var(--color-secondary);margin-bottom:12px;display:block;font-weight:700;text-decoration:underline;">[Testing: Auto-fill Mock Proofs]</a>
+                  
+                  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;text-align:left;">
+                    <label style="font-size:1.15rem;font-weight:700;color:#555;text-transform:uppercase;">1. Upload Invoice Photo/Screenshot</label>
+                    <input type="file" id="retInvoiceFile" accept="image/*" style="font-size:1.2rem;">
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;text-align:left;">
+                    <label style="font-size:1.15rem;font-weight:700;color:#555;text-transform:uppercase;">2. Upload Unboxing Video (Max 15MB)</label>
+                    <input type="file" id="retVideoFile" accept="video/*" style="font-size:1.2rem;">
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;text-align:left;">
+                    <label style="font-size:1.15rem;font-weight:700;color:#555;text-transform:uppercase;">3. Describe the Defect</label>
+                    <textarea id="retDefectDesc" rows="3" placeholder="Explain what defect was detected during unboxing..." required style="padding:10px;font-size:1.3rem;border:1px solid #ddd;border-radius:4px;outline:none;font-family:sans-serif;width:100%;"></textarea>
+                  </div>
+                  <button type="submit" id="btnSubmitRet" class="btn-primary" style="width:100%;padding:10px;font-size:1.30rem;justify-content:center;">
+                    Submit Return Request
+                  </button>
+                </form>
+              `}
+            </div>
+          </div>
+        ` : `
+          <div style="margin-top:30px;background:#fffaf0;border:1px dashed #f0ad4e;padding:15px;border-radius:var(--rounded-md);text-align:left;font-size:1.3rem;">
+            ℹ Your order is confirmed and is currently being processed. Once payment is confirmed and our logistics partner scans the tracking barcode, your tracking details will appear here.
+          </div>
+        `}
+      </div>
+    `;
+    
+    detailsContainer.innerHTML = trackingDetailsHtml;
+    detailsContainer.style.display = 'block';
+  });
+}
+
+// Escape key listener tracking extension
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const trackingOverlay = $('#trackingOverlay');
+    if (trackingOverlay) {
+      trackingOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+});
+
 // ── Init ──
+// ── Customer PDF Invoice Downloader ──
+window.downloadCustomerInvoicePDF = function(orderId) {
+  const stored = localStorage.getItem('vfs_orders');
+  let ordersList = [];
+  if (stored) {
+    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
+  }
+  
+  const order = ordersList.find(o => o.id === orderId);
+  if (!order) return;
+
+  toast("Generating invoice PDF... 📄");
+
+  // Create temporary offscreen container
+  const tempDiv = document.createElement('div');
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.top = '0';
+  tempDiv.style.width = '750px';
+  tempDiv.style.background = '#ffffff';
+  tempDiv.style.color = '#000000';
+  tempDiv.style.padding = '30px';
+  tempDiv.style.fontFamily = "'Lato', sans-serif";
+
+  const cgst = order.subtotal * 0.015;
+  const sgst = order.subtotal * 0.015;
+
+  const tableRows = order.items.map((item, idx) => `
+    <tr style="border-bottom: 1px solid #eeeeee;">
+      <td style="padding: 12px 10px; font-size: 10pt; color: #000000;">${idx + 1}</td>
+      <td style="padding: 12px 10px; font-size: 10pt; color: #000000;"><strong>${item.name}</strong><br><span style="font-size:8pt;color:#666">Imitation Fashion Jewellery</span></td>
+      <td style="padding: 12px 10px; font-size: 10pt; color: #000000;">${fmt(item.price)}</td>
+      <td style="padding: 12px 10px; font-size: 10pt; color: #000000;">${item.qty}</td>
+      <td style="padding: 12px 10px; font-size: 10pt; text-align: right; color: #000000;">${fmt(item.price * item.qty)}</td>
+    </tr>
+  `).join('');
+
+  tempDiv.innerHTML = `
+    <div style="border: 1px solid #dddddd; padding: 30px; background: #ffffff; color: #000000;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #D4AF37; padding-bottom: 20px; margin-bottom: 20px;">
+        <div>
+          <div style="font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #000000;">VFS<span style="color:#D4AF37;">.</span></div>
+          <p style="font-size: 8.5pt; color: #666666; margin: 4px 0 0 0;">Handcrafted Premium Imitation Jewellery</p>
+        </div>
+        <div style="text-align: right; font-size: 9.5pt; line-height: 1.4; color: #000000;">
+          <h2 style="color: #D4AF37; text-transform: uppercase; font-size: 16px; margin: 0 0 6px 0;">Retail Tax Invoice</h2>
+          <p style="margin: 2px 0;"><strong>Invoice ID:</strong> INV-${order.id.replace('#', '')}</p>
+          <p style="margin: 2px 0;"><strong>Order ID:</strong> ${order.id}</p>
+          <p style="margin: 2px 0;"><strong>Date:</strong> ${order.date}</p>
+          <p style="margin: 2px 0;"><strong>Status:</strong> <span style="color:#27AE60;font-weight:700;text-transform:uppercase;">${order.status}</span></p>
+        </div>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 35px; font-size: 9.5pt; line-height: 1.5; color: #000000;">
+        <div>
+          <h4 style="margin: 0 0 6px 0; font-weight: 700; text-transform: uppercase; color: #555555;">Sold By:</h4>
+          <strong>VFS Jewels Main Store</strong><br>
+          42, 2nd Floor, Natwar Kurpa Complex,<br>
+          Narayana Mudali Street, Sowcarpet, George Town,<br>
+          Chennai, Tamil Nadu - 600001<br>
+          Email: accounts@vfsjewels.in | GSTIN: 33AAFVC8491A1ZX
+        </div>
+        <div>
+          <h4 style="margin: 0 0 6px 0; font-weight: 700; text-transform: uppercase; color: #555555;">Ship To:</h4>
+          <strong>${order.name}</strong><br>
+          Address: ${order.address}<br>
+          City: ${order.city} - ${order.pincode}<br>
+          Phone: +91 ${order.phone}
+        </div>
+      </div>
+      
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; color: #000000;">
+        <thead>
+          <tr style="background: #fcfcfc; border-bottom: 2px solid #dddddd;">
+            <th style="width: 8%; text-align: left; padding: 10px; font-size: 9pt; text-transform: uppercase; color: #000000;">S.No</th>
+            <th style="text-align: left; padding: 10px; font-size: 9pt; text-transform: uppercase; color: #000000;">Description of Goods</th>
+            <th style="width: 15%; text-align: left; padding: 10px; font-size: 9pt; text-transform: uppercase; color: #000000;">Rate</th>
+            <th style="width: 10%; text-align: left; padding: 10px; font-size: 9pt; text-transform: uppercase; color: #000000;">Qty</th>
+            <th style="width: 18%; text-align: right; padding: 10px; font-size: 9pt; text-transform: uppercase; color: #000000;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+      
+      <div style="display: flex; justify-content: flex-end; color: #000000; margin-bottom: 20px;">
+        <table style="width: 250px; font-size: 9.5pt; line-height: 1.6; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 4px 0; color: #000000;">Subtotal:</td>
+            <td style="text-align: right; font-weight: 700; padding: 4px 0; color: #000000;">${fmt(order.subtotal)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #000000;">CGST (1.5%):</td>
+            <td style="text-align: right; font-weight: 700; padding: 4px 0; color: #000000;">${fmt(cgst)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #000000;">SGST (1.5%):</td>
+            <td style="text-align: right; font-weight: 700; padding: 4px 0; color: #000000;">${fmt(sgst)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #000000;">Shipping Fee:</td>
+            <td style="text-align: right; font-weight: 700; padding: 4px 0; color: #000000;">${fmt(order.shipping)}</td>
+          </tr>
+          <tr style="font-size: 11pt; font-weight: 900; border-top: 1px solid #dddddd; color: #000000;">
+            <td style="padding: 8px 0 0 0; color: #000000;">Grand Total:</td>
+            <td style="text-align: right; padding: 8px 0 0 0; color: #000000;">${fmt(order.total)}</td>
+          </tr>
+        </table>
+      </div>
+      
+      ${order.trackingId ? `
+        <div style="text-align: center; margin: 25px 0; color: #000000;">
+          <p style="font-size: 8pt; color: #666666; margin: 0 0 6px 0;">Shipping Partner: <strong>${order.carrier}</strong></p>
+          <div style="display: inline-flex; height: 35px; align-items: stretch; width: 180px;">
+            ${Array.from({length: 34}).map(() => {
+              const width = [1, 2, 3][Math.floor(Math.random() * 3)];
+              const space = [1, 2][Math.floor(Math.random() * 2)];
+              return `<div style="background:#000000;width:${width}px;margin-right:${space}px;height:100%"></div>`;
+            }).join('')}
+          </div>
+          <div style="font-family: monospace; font-size: 9pt; letter-spacing: 5px; margin-top: 6px; color: #000000;">${order.trackingId}</div>
+        </div>
+      ` : ''}
+      
+      <div style="text-align: center; font-size: 8.5pt; color: #777777; margin-top: 40px; border-top: 1px dashed #dddddd; padding-top: 15px;">
+        <p style="margin: 0 0 4px 0;">This is a computer-generated tax invoice. No signature required.</p>
+        <p style="margin: 0; font-weight: 700; color: #000000;">Thank you for your business! VFS Jewellery Sowcarpet</p>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(tempDiv);
+  
+  const opt = {
+    margin:       [0.4, 0.4],
+    filename:     `VFS_Invoice_${order.id.replace('#', '')}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2, useCORS: true },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+  };
+  
+  html2pdf().set(opt).from(tempDiv).save().then(() => {
+    tempDiv.remove();
+    toast(`PDF invoice downloaded! 📄`);
+  }).catch(err => {
+    console.error("PDF generation error:", err);
+    tempDiv.remove();
+  });
+};
+
+// ── Hash Routing for Direct Product Links ──
+function checkHashRoute() {
+  const hash = window.location.hash;
+  if (hash) {
+    const match = hash.match(/#product[\/-](\d+)/);
+    if (match) {
+      const productId = parseInt(match[1]);
+      setTimeout(() => {
+        openPDP(productId);
+      }, 300); // slight delay to ensure dynamic products render first
+    }
+  }
+}
+
+window.addEventListener('load', checkHashRoute);
+window.addEventListener('hashchange', checkHashRoute);
+
+// Execute immediately in case the load event has already fired
+checkHashRoute();
+
 renderProducts(null);
 renderTestimonials();
 updateCounts();
+
+// ── MOBILE SIDE DRAWER NAVIGATION ──
+const mobileNavDrawer = $('#mobileNavDrawer');
+const openMobileNavBtn = $('#openMobileNav');
+const closeMobileNavBtn = $('#closeMobileNav');
+const drawerSearchInput = $('#drawerSearchInput');
+const drawerCategoriesList = $('#drawerCategoriesList');
+
+// Toggle Drawer Open/Close
+if (openMobileNavBtn && mobileNavDrawer) {
+  openMobileNavBtn.addEventListener('click', () => {
+    mobileNavDrawer.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    populateDrawerCategories();
+  });
+}
+
+if (closeMobileNavBtn && mobileNavDrawer) {
+  closeMobileNavBtn.addEventListener('click', () => {
+    mobileNavDrawer.classList.remove('active');
+    document.body.style.overflow = '';
+  });
+}
+
+// Close drawer if clicking backdrop overlay
+if (mobileNavDrawer) {
+  mobileNavDrawer.addEventListener('click', (e) => {
+    if (e.target === mobileNavDrawer) {
+      mobileNavDrawer.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+}
+
+// Switch Tabs inside Side Drawer
+const drawerTabBtns = document.querySelectorAll('.drawer-tab-btn');
+drawerTabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    // Remove active state from headers
+    drawerTabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    // Switch active panels
+    const tabName = btn.dataset.tab;
+    const tabContents = document.querySelectorAll('.drawer-tab-content');
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    if (tabName === 'menu') {
+      const panel = $('#tabContentMenu');
+      if (panel) panel.classList.add('active');
+    } else {
+      const panel = $('#tabContentCategories');
+      if (panel) panel.classList.add('active');
+    }
+  });
+});
+
+// Populate Drawer Categories list dynamically
+function populateDrawerCategories() {
+  if (!drawerCategoriesList) return;
+  drawerCategoriesList.innerHTML = '';
+  
+  // Get unique category names from catalog
+  const uniqueCats = [...new Set(getFullCatalog().map(p => p.cat).filter(Boolean))];
+  
+  uniqueCats.forEach(cat => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = '#products';
+    a.className = 'drawer-nav-link';
+    a.textContent = cat.toUpperCase();
+    a.addEventListener('click', () => {
+      // Close drawer
+      mobileNavDrawer.classList.remove('active');
+      document.body.style.overflow = '';
+      
+      // Filter products by category
+      const filtered = getFullCatalog().filter(p => p.cat.toLowerCase() === cat.toLowerCase());
+      renderProducts(filtered);
+      
+      // Scroll to catalog section
+      const target = document.getElementById('products');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+    li.appendChild(a);
+    drawerCategoriesList.appendChild(li);
+  });
+}
+
+// Search field triggers
+if (drawerSearchInput) {
+  // Enter key press triggers storefront search
+  drawerSearchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      triggerDrawerSearch();
+    }
+  });
+}
+
+function triggerDrawerSearch() {
+  const query = drawerSearchInput.value.trim().toLowerCase();
+  if (mobileNavDrawer) {
+    mobileNavDrawer.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  
+  // Set storefront search bar value & trigger search
+  const storefrontSearchInput = $('#searchInput');
+  if (storefrontSearchInput) {
+    storefrontSearchInput.value = query;
+    // Dispatch input event to fire the real-time search listener in storefront
+    storefrontSearchInput.dispatchEvent(new Event('input'));
+  }
+  
+  // Scroll storefront to catalog list
+  const target = document.getElementById('products');
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
+// Menu Nav Link scroll overrides
+const drawerNavLinks = document.querySelectorAll('.drawer-nav-link');
+drawerNavLinks.forEach(link => {
+  link.addEventListener('click', (e) => {
+    const targetAttr = link.dataset.target;
+    if (!targetAttr) return;
+    
+    // Close drawer
+    if (mobileNavDrawer) {
+      mobileNavDrawer.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    
+    if (targetAttr === 'home') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (targetAttr === 'about') {
+      e.preventDefault();
+      const target = document.getElementById('trust');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    } else if (targetAttr === 'shop') {
+      e.preventDefault();
+      // Show full catalog
+      renderProducts(null);
+      const target = document.getElementById('products');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    } else if (targetAttr === 'contact') {
+      e.preventDefault();
+      const target = document.getElementById('store');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    } else if (targetAttr === 'fine-gold') {
+      e.preventDefault();
+      // filter to 'Fine Gold' category
+      const filtered = getFullCatalog().filter(p => p.cat.toLowerCase() === 'fine gold' || p.cat.toLowerCase() === 'gold');
+      renderProducts(filtered);
+      const target = document.getElementById('products');
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+});
+
+// ── Return Policy Modal Listeners ──
+const returnPolicyModal = $('#returnPolicyModal');
+const openPolicyBtn = $('#footerReturnsPolicy');
+const closePolicyBtn = $('#closeReturnPolicy');
+const policyTrackBtn = $('#btnPolicyTrackOrder');
+
+if (openPolicyBtn && returnPolicyModal) {
+  openPolicyBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    returnPolicyModal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  });
+}
+
+if (closePolicyBtn && returnPolicyModal) {
+  closePolicyBtn.addEventListener('click', () => {
+    returnPolicyModal.classList.remove('active');
+    document.body.style.overflow = '';
+  });
+}
+
+if (policyTrackBtn && returnPolicyModal) {
+  policyTrackBtn.addEventListener('click', () => {
+    returnPolicyModal.classList.remove('active');
+    document.body.style.overflow = '';
+    // Open tracking overlay
+    const trackingOverlay = $('#trackingOverlay');
+    if (trackingOverlay) {
+      trackingOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  });
+}
+
+// ── Returns Request Form Logic ──
+window.toggleReturnForm = function() {
+  const form = document.getElementById('returnsSubmitForm');
+  if (form) {
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+window.submitReturnRequest = function(event, orderId, phone) {
+  event.preventDefault();
+  
+  const invoiceInput = document.getElementById('retInvoiceFile');
+  const videoInput = document.getElementById('retVideoFile');
+  const descInput = document.getElementById('retDefectDesc');
+  const submitBtn = document.getElementById('btnSubmitRet');
+  
+  const debugFilled = document.getElementById('returnsSubmitForm').dataset.debugFilled === "true";
+  
+  if (!invoiceInput || !videoInput || !descInput || !submitBtn) return;
+  if (!debugFilled && (!invoiceInput.files[0] || !videoInput.files[0])) {
+    toast('Please upload invoice photo & unboxing video');
+    return;
+  }
+  if (!descInput.value.trim()) {
+    toast('Please describe the defect');
+    return;
+  }
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Uploading files & submitting...';
+  
+  const defectDesc = descInput.value.trim();
+  
+  const handleSuccess = (invoiceB64, videoB64) => {
+    const stored = localStorage.getItem('vfs_returns');
+    let returnsList = [];
+    if (stored) {
+      try { returnsList = JSON.parse(stored); } catch(e) {}
+    }
+    
+    // Save return request
+    const returnObj = {
+      id: 'RET-' + Date.now().toString().slice(-4),
+      orderId: orderId,
+      phone: phone,
+      invoice: invoiceB64,
+      video: videoB64,
+      desc: defectDesc,
+      status: 'pending',
+      date: new Date().toLocaleDateString('en-IN')
+    };
+    
+    returnsList.push(returnObj);
+    localStorage.setItem('vfs_returns', JSON.stringify(returnsList));
+    
+    // Update order returnStatus to pending
+    const ordersStored = localStorage.getItem('vfs_orders');
+    if (ordersStored) {
+      try {
+        const ordersList = JSON.parse(ordersStored);
+        const oIdx = ordersList.findIndex(o => o.id === orderId);
+        if (oIdx !== -1) {
+          ordersList[oIdx].returnStatus = 'pending';
+          localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+        }
+      } catch(e) {}
+    }
+    
+    toast('Return submitted successfully! 🔄');
+    
+    // Re-trigger order tracking display to show "pending verification" status
+    const btnTrack = document.getElementById('btnTrackOrder');
+    if (btnTrack) btnTrack.click();
+  };
+
+  if (debugFilled) {
+    const dummyImage = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><rect width='150' height='150' fill='%23D4AF37'/><text x='15' y='80' fill='black' font-family='sans-serif' font-weight='bold'>VFS INVOICE PROOF</text></svg>";
+    const dummyVideo = "data:video/mp4;base64,AAAAIGZ0eXBtcDQyAAAAAG1wNDJpc29tYXZjMQAAADhmdmVlAAAAAGhhbmRsAAAAAG1pbmYAAAAAZWxzdAAAAABzdGJsAAAAAG1kaWEAAAAAbWRoZAAAAAA=";
+    setTimeout(() => {
+      handleSuccess(dummyImage, dummyVideo);
+    }, 800);
+    return;
+  }
+
+  const invoiceFile = invoiceInput.files[0];
+  const videoFile = videoInput.files[0];
+  
+  // Convert both files to Base64 in parallel using FileReader
+  const readAsBase64 = (file) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+  
+  Promise.all([readAsBase64(invoiceFile), readAsBase64(videoFile)]).then(([invoiceB64, videoB64]) => {
+    handleSuccess(invoiceB64, videoB64);
+  }).catch(err => {
+    console.error(err);
+    toast('Error parsing files. Try smaller attachments.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Return Request';
+  });
+}
+
+window.autofillReturnProofs = function(e) {
+  e.preventDefault();
+  const form = document.getElementById('returnsSubmitForm');
+  if (form) {
+    form.dataset.debugFilled = "true";
+    document.getElementById('retDefectDesc').value = "Scratched gold coating on the main celestial halo band mount.";
+    toast("Demo return request details auto-filled! 🔄");
+  }
+};
