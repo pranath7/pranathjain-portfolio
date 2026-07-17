@@ -23,16 +23,274 @@ const DEFAULT_PRODUCTS = [
   { id: 12, name: 'Tennis Bracelet CZ', cat: 'bracelets', meta: 'Rose Gold', price: 1099, mrp: 2199, img: 'assets/bracelets.webp', rating: 4.8, reviews: 298, badge: 'Trending' }
 ];
 
-function getAdminCatalog() {
-  const stored = localStorage.getItem('vfs_products');
-  if (stored) {
-    try { return JSON.parse(stored); } catch(e) {}
+// ── Cloud Persistence & File Upload wrappers ──
+window.VFS_CLOUD_ACTIVE = false;
+window.VFS_CONFIG = {
+  firebase: null,
+  cloudinary: null
+};
+window.VFS_PRODUCTS_CACHE = [];
+
+async function initCloudConfig() {
+  try {
+    const res = await fetch('../vfs-config.json');
+    if (res.ok) {
+      const config = await res.json();
+      if (config.firebase && config.firebase.apiKey && !config.firebase.apiKey.startsWith("YOUR_")) {
+        window.VFS_CONFIG = config;
+        firebase.initializeApp(config.firebase);
+        window.db = firebase.firestore();
+        window.VFS_CLOUD_ACTIVE = true;
+        console.log("🔥 VFS Admin Cloud: Connected to Firestore.");
+        
+        // Initial cache and render refresh
+        await refreshCloudData();
+      }
+    }
+  } catch (e) {
+    console.warn("⚠️ VFS Admin Cloud: Fallback to localStorage.", e);
   }
-  const defaults = DEFAULT_PRODUCTS.map((p, idx) => ({
-    ...p,
-    sku: p.sku || `SN-${String(idx + 1).padStart(4, '0')}`
-  }));
-  localStorage.setItem('vfs_products', JSON.stringify(defaults));
+}
+
+async function refreshCloudData() {
+  const dbProducts = await window.VFS_DB.getProducts();
+  if (dbProducts && dbProducts.length > 0) {
+    window.VFS_PRODUCTS_CACHE = dbProducts;
+  }
+  if (typeof loadDashboard === 'function') {
+    loadDashboard();
+  }
+  if (typeof renderSearchCatalog === 'function') {
+    renderSearchCatalog();
+  }
+}
+
+// Call config initialization asynchronously
+initCloudConfig();
+
+window.uploadToCloudinary = async function(file) {
+  if (!window.VFS_CONFIG.cloudinary || !window.VFS_CONFIG.cloudinary.cloudName || window.VFS_CONFIG.cloudinary.cloudName.startsWith("YOUR_")) {
+    throw new Error("Cloudinary not configured");
+  }
+  const cloudName = window.VFS_CONFIG.cloudinary.cloudName;
+  const preset = window.VFS_CONFIG.cloudinary.uploadPreset;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', preset);
+  
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+    method: 'POST',
+    body: formData
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || "Upload failed");
+  }
+  const data = await res.json();
+  return data.secure_url;
+};
+
+window.VFS_DB = {
+  // ── Orders ──
+  getOrders: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('orders').get();
+        const orders = [];
+        snap.forEach(doc => {
+          orders.push(doc.data());
+        });
+        return orders;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    return local ? JSON.parse(local) : [];
+  },
+  
+  saveOrder: async function(order) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('orders').doc(order.id).set(order);
+        return;
+      } catch(e) {
+        console.error("Firestore write error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    let list = local ? JSON.parse(local) : [];
+    list.push(order);
+    localStorage.setItem('vfs_orders', JSON.stringify(list));
+  },
+
+  updateOrder: async function(orderId, updates) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('orders').doc(orderId).update(updates);
+        return;
+      } catch(e) {
+        console.error("Firestore update error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    if (local) {
+      const list = JSON.parse(local);
+      const idx = list.findIndex(o => o.id === orderId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updates };
+        localStorage.setItem('vfs_orders', JSON.stringify(list));
+      }
+    }
+  },
+
+  // ── Returns ──
+  getReturns: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('returns').get();
+        const returns = [];
+        snap.forEach(doc => {
+          returns.push(doc.data());
+        });
+        return returns;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_returns');
+    return local ? JSON.parse(local) : [];
+  },
+
+  saveReturn: async function(retObj) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('returns').doc(retObj.id).set(retObj);
+        return;
+      } catch(e) {
+        console.error("Firestore write error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_returns');
+    let list = local ? JSON.parse(local) : [];
+    list.push(retObj);
+    localStorage.setItem('vfs_returns', JSON.stringify(list));
+  },
+
+  updateReturn: async function(retId, updates) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('returns').doc(retId).update(updates);
+        return;
+      } catch(e) {
+        console.error("Firestore update error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_returns');
+    if (local) {
+      const list = JSON.parse(local);
+      const idx = list.findIndex(r => r.id === retId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updates };
+        localStorage.setItem('vfs_returns', JSON.stringify(list));
+      }
+    }
+  },
+
+  // ── Wallet Credits ──
+  getWalletCredits: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('wallet_credits').get();
+        const credits = {};
+        snap.forEach(doc => {
+          credits[doc.id] = doc.data().balance || 0;
+        });
+        return credits;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_customer_credits');
+    return local ? JSON.parse(local) : {};
+  },
+
+  saveWalletBalance: async function(phone, balance) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('wallet_credits').doc(phone).set({ balance: balance });
+        return;
+      } catch(e) {
+        console.error("Firestore write error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_customer_credits');
+    let credits = local ? JSON.parse(local) : {};
+    credits[phone] = balance;
+    localStorage.setItem('vfs_customer_credits', JSON.stringify(credits));
+  },
+
+  // ── Catalog Products ──
+  getProducts: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('products').get();
+        const products = [];
+        snap.forEach(doc => {
+          products.push(doc.data());
+        });
+        if (products.length > 0) return products;
+      } catch(e) {
+        console.error("Firestore read products error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_custom_products');
+    return local ? JSON.parse(local) : null;
+  },
+
+  saveProductsList: async function(productsList) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        for (const p of productsList) {
+          await window.db.collection('products').doc(p.id.toString()).set(p);
+        }
+        return;
+      } catch(e) {
+        console.error("Firestore write products error:", e);
+      }
+    }
+    localStorage.setItem('vfs_custom_products', JSON.stringify(productsList));
+  },
+
+  deleteProduct: async function(productId) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('products').doc(productId.toString()).delete();
+        return;
+      } catch(e) {
+        console.error("Firestore delete product error:", e);
+      }
+    }
+  }
+};
+
+function getAdminCatalog() {
+  if (window.VFS_PRODUCTS_CACHE && window.VFS_PRODUCTS_CACHE.length > 0) {
+    return window.VFS_PRODUCTS_CACHE;
+  }
+  const stored = localStorage.getItem('vfs_products');
+  let defaults = [];
+  if (stored) {
+    try { defaults = JSON.parse(stored); } catch(e) {}
+  }
+  if (!defaults.length) {
+    defaults = DEFAULT_PRODUCTS.map((p, idx) => ({
+      ...p,
+      sku: p.sku || `SN-${String(idx + 1).padStart(4, '0')}`
+    }));
+    localStorage.setItem('vfs_products', JSON.stringify(defaults));
+  }
+  window.VFS_PRODUCTS_CACHE = defaults;
   return defaults;
 }
 
@@ -186,19 +444,22 @@ window.saveProductInline = function(id) {
     products[index].mrp = newPrice;
     products[index].cat = newCat;
     
-    localStorage.setItem('vfs_products', JSON.stringify(products));
+    await window.VFS_DB.saveProductsList(products);
+    window.VFS_PRODUCTS_CACHE = products;
     adminToast('Product updated successfully! 🌸');
     renderSearchCatalog();
   }
 };
 
-window.deleteProductFromCatalog = function(id) {
+window.deleteProductFromCatalog = async function(id) {
   if (!confirm('Are you sure you want to delete this product from the catalog?')) return;
   
   const products = getAdminCatalog();
   const filtered = products.filter(p => String(p.id) !== String(id));
   
-  localStorage.setItem('vfs_products', JSON.stringify(filtered));
+  await window.VFS_DB.saveProductsList(filtered);
+  await window.VFS_DB.deleteProduct(id);
+  window.VFS_PRODUCTS_CACHE = filtered;
   adminToast('Product deleted successfully! 🗑️');
   renderSearchCatalog();
 };
@@ -288,12 +549,8 @@ $('#productSearchInput').addEventListener('input', () => {
 });
 
 // ── Load / Render Orders Data ──
-function loadDashboard() {
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
+async function loadDashboard() {
+  const ordersList = await window.VFS_DB.getOrders();
   
   // Calculate KPIs
   let totalSales = 0;
@@ -623,40 +880,40 @@ window.shareOnWhatsApp = function(orderId) {
 };
 
 // ── Mark Paid Action ──
-window.markOrderPaid = function(orderId) {
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
-  
+window.markOrderPaid = async function(orderId) {
+  const ordersList = await window.VFS_DB.getOrders();
   const order = ordersList.find(o => o.id === orderId);
   if (order) {
-    order.status = 'paid';
-    localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+    await window.VFS_DB.updateOrder(orderId, { status: 'paid' });
     adminToast(`Payment confirmed for Order ${orderId} 💳`);
     
     // Log Simulated SMS
     const smsMsg = `VFS Jewels: Payment confirmed for Order ${order.id}. Your invoice is ready! Track at http://localhost:8283/index.html`;
     logSimulatedSMS(order.phone, smsMsg);
     
-    loadDashboard();
+    await loadDashboard();
   }
 };
 
 // ── Delete/Cancel Order Action ──
-window.deleteOrder = function(orderId) {
+window.deleteOrder = async function(orderId) {
   if (!confirm(`Are you sure you want to delete order ${orderId}?`)) return;
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
   
-  ordersList = ordersList.filter(o => o.id !== orderId);
-  localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+  if (window.VFS_CLOUD_ACTIVE) {
+    try {
+      await window.db.collection('orders').doc(orderId).delete();
+    } catch(e) {
+      console.error(e);
+    }
+  } else {
+    const stored = localStorage.getItem('vfs_orders');
+    if (stored) {
+      const list = JSON.parse(stored).filter(o => o.id !== orderId);
+      localStorage.setItem('vfs_orders', JSON.stringify(list));
+    }
+  }
   adminToast(`Order ${orderId} has been deleted`, 'error');
-  loadDashboard();
+  await loadDashboard();
 };
 
 // ── Barcode Synthesizer beep Sound ──
@@ -767,17 +1024,11 @@ function getOrderCarrier(orderId) {
   return order ? order.carrier : 'Standard';
 }
 
-function assignTrackingId(orderId, trackingId) {
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
-  
+async function assignTrackingId(orderId, trackingId) {
+  const ordersList = await window.VFS_DB.getOrders();
   const order = ordersList.find(o => o.id === orderId);
   if (order) {
-    order.trackingId = trackingId;
-    localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+    await window.VFS_DB.updateOrder(orderId, { trackingId: trackingId });
     
     // Log Simulated SMS
     const smsMsg = `VFS Jewels: Order ${order.id} shipped via ${order.carrier}. Tracking ID: ${order.trackingId}. Track at http://localhost:8283/index.html`;
@@ -786,7 +1037,7 @@ function assignTrackingId(orderId, trackingId) {
     // Send automated simulated notification to Customer WhatsApp
     sendSimulatedWhatsAppNotification(order, trackingId);
     
-    loadDashboard();
+    await loadDashboard();
   }
 }
 
@@ -1035,7 +1286,7 @@ async function handleSelectedFiles(files) {
     const file = files[i];
     try {
       const base64 = await compressImage(file, 800, 0.75);
-      uploadedFilesData.push({ name: file.name, base64: base64 });
+      uploadedFilesData.push({ name: file.name, base64: base64, file: file });
       
       // Render thumbnails
       const img = document.createElement('img');
@@ -1213,17 +1464,37 @@ function renderBulkProductsForm() {
 }
 
 // Save form values to LocalStorage custom products
-$('#productForm').addEventListener('submit', (e) => {
+// Save form values to LocalStorage/Firestore custom products
+$('#productForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   
-  const customProductsList = getAdminCatalog();
+  const saveBtn = $('#btnSaveProducts');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving products...';
   
+  const customProductsList = getAdminCatalog();
   const newProducts = [];
+  
+  // Upload to Cloudinary if active
+  if (window.VFS_CLOUD_ACTIVE && window.VFS_CONFIG.cloudinary && window.VFS_CONFIG.cloudinary.cloudName && !window.VFS_CONFIG.cloudinary.cloudName.startsWith("YOUR_")) {
+    try {
+      saveBtn.textContent = 'Uploading to Cloudinary...';
+      const urls = await Promise.all(
+        uploadedFilesData.map(f => window.uploadToCloudinary(f.file))
+      );
+      uploadedFilesData.forEach((f, idx) => {
+        f.cloudinaryUrl = urls[idx];
+      });
+    } catch (err) {
+      console.error("Cloudinary upload failed:", err);
+      adminToast('Cloudinary upload failed. Falling back to Base64 data.', 'error');
+    }
+  }
   
   if (currentWizardMode === 'gallery') {
     // Gallery mode: Save exactly one product
-    const imagesList = uploadedFilesData.map(f => f.base64);
-    const mainImg = imagesList[0];
+    const mainImg = uploadedFilesData[0].cloudinaryUrl || uploadedFilesData[0].base64;
+    const imagesList = uploadedFilesData.map(f => f.cloudinaryUrl || f.base64);
     
     // Resolve Category
     const catSelect = $('#singCategory');
@@ -1265,6 +1536,7 @@ $('#productForm').addEventListener('submit', (e) => {
       }
       
       const pId = Math.floor(10000 + Math.random() * 90000);
+      const mainImg = fileObj.cloudinaryUrl || fileObj.base64;
       const prod = {
         id: pId,
         sku: generateSKU(idx),
@@ -1274,8 +1546,8 @@ $('#productForm').addEventListener('submit', (e) => {
         price: +prices[idx].value,
         mrp: +prices[idx].value,
         desc: descs[idx].value.trim(),
-        img: fileObj.base64,
-        imgs: [fileObj.base64],
+        img: mainImg,
+        imgs: [mainImg],
         rating: parseFloat((4.5 + Math.random() * 0.5).toFixed(1)),
         reviews: Math.floor(50 + Math.random() * 200),
         badge: ''
@@ -1284,9 +1556,12 @@ $('#productForm').addEventListener('submit', (e) => {
     });
   }
   
-  // Merge and save
+  // Merge and save via DB wrapper
   const mergedProducts = [...customProductsList, ...newProducts];
-  localStorage.setItem('vfs_products', JSON.stringify(mergedProducts));
+  await window.VFS_DB.saveProductsList(mergedProducts);
+  
+  // Refresh catalog cache
+  window.VFS_PRODUCTS_CACHE = mergedProducts;
   
   adminToast(`Successfully added ${newProducts.length} product(s) to catalog! 🌸`);
   
@@ -1294,9 +1569,12 @@ $('#productForm').addEventListener('submit', (e) => {
   $('#productForm').reset();
   $('#previewImages').innerHTML = '';
   $('#wizardFieldsContainer').innerHTML = '';
-  $('#btnSaveProducts').disabled = true;
   uploadedFilesData = [];
   currentWizardMode = null;
+  
+  // Refresh view
+  renderSearchCatalog();
+  await loadDashboard();
 });
 
 // ── Outbound SMS Dispatch Logs & Device Client triggers ──
@@ -1495,12 +1773,8 @@ window.triggerAutoDesc = function(type, idx) {
 };
 
 // ── VFS Returns Center Administration ──
-function loadReturnQueries() {
-  const stored = localStorage.getItem('vfs_returns');
-  let returnsList = [];
-  if (stored) {
-    try { returnsList = JSON.parse(stored); } catch(e) {}
-  }
+async function loadReturnQueries() {
+  const returnsList = await window.VFS_DB.getReturns();
 
   const container = document.getElementById('listReturns');
   if (!container) return;
@@ -1625,49 +1899,30 @@ window.openMediaLightbox = function(mediaSrc, type) {
   document.body.appendChild(overlay);
 };
 
-window.approveReturnRequest = function(retId, orderTotal) {
+window.approveReturnRequest = async function(retId, orderTotal) {
   const confirmApprove = confirm(`Are you sure you want to approve return request ${retId}? This will credit ₹${orderTotal} worth of points to the customer.`);
   if (!confirmApprove) return;
 
-  const returnsStored = localStorage.getItem('vfs_returns');
-  let returnsList = [];
-  if (returnsStored) {
-    try { returnsList = JSON.parse(returnsStored); } catch(e) {}
-  }
-
+  const returnsList = await window.VFS_DB.getReturns();
   const retObj = returnsList.find(r => r.id === retId);
   if (!retObj) return;
 
   // 1. Mark request as approved
-  retObj.status = 'approved';
-  localStorage.setItem('vfs_returns', JSON.stringify(returnsList));
+  await window.VFS_DB.updateReturn(retId, { status: 'approved' });
 
   // 2. Add credit points to wallet
-  const creditsStored = localStorage.getItem('vfs_customer_credits');
-  let creditsLedger = {};
-  if (creditsStored) {
-    try { creditsLedger = JSON.parse(creditsStored); } catch(e) {}
-  }
+  const creditsLedger = await window.VFS_DB.getWalletCredits();
   const currentCredits = creditsLedger[retObj.phone] || 0;
-  creditsLedger[retObj.phone] = currentCredits + orderTotal;
-  localStorage.setItem('vfs_customer_credits', JSON.stringify(creditsLedger));
+  await window.VFS_DB.saveWalletBalance(retObj.phone, currentCredits + orderTotal);
 
   // 3. Update order status to returned & returnStatus to approved
-  const ordersStored = localStorage.getItem('vfs_orders');
-  if (ordersStored) {
-    try {
-      const ordersList = JSON.parse(ordersStored);
-      const oIdx = ordersList.findIndex(o => o.id === retObj.orderId);
-      if (oIdx !== -1) {
-        ordersList[oIdx].status = 'returned';
-        ordersList[oIdx].returnStatus = 'approved';
-        localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
-      }
-    } catch(e) {}
-  }
+  await window.VFS_DB.updateOrder(retObj.orderId, { status: 'returned', returnStatus: 'approved' });
 
   adminToast(`Return ${retId} approved! Points credited.`);
-  loadDashboard();
+  await loadDashboard();
+  
+  // Re-load returns list to reflect approval status instantly
+  await loadReturnQueries();
 
   // 4. Pre-fill WhatsApp message to customer
   const text = `Hi, your return request for order ${retObj.orderId} has been approved. A credit of ₹${orderTotal} points has been successfully added to your VFS wallet account (Phone: ${retObj.phone}). Thank you for shopping with VFS!`;
@@ -1675,38 +1930,25 @@ window.approveReturnRequest = function(retId, orderTotal) {
   window.open(waUrl, '_blank');
 };
 
-window.rejectReturnRequest = function(retId) {
+window.rejectReturnRequest = async function(retId) {
   const reason = prompt(`Enter reason for declining return request ${retId}:`, "Video edit detected / Defect not verified");
   if (reason === null) return;
 
-  const returnsStored = localStorage.getItem('vfs_returns');
-  let returnsList = [];
-  if (returnsStored) {
-    try { returnsList = JSON.parse(returnsStored); } catch(e) {}
-  }
-
+  const returnsList = await window.VFS_DB.getReturns();
   const retObj = returnsList.find(r => r.id === retId);
   if (!retObj) return;
 
   // 1. Mark request as rejected
-  retObj.status = 'rejected';
-  localStorage.setItem('vfs_returns', JSON.stringify(returnsList));
+  await window.VFS_DB.updateReturn(retId, { status: 'rejected' });
 
   // 2. Update order returnStatus to rejected
-  const ordersStored = localStorage.getItem('vfs_orders');
-  if (ordersStored) {
-    try {
-      const ordersList = JSON.parse(ordersStored);
-      const oIdx = ordersList.findIndex(o => o.id === retObj.orderId);
-      if (oIdx !== -1) {
-        ordersList[oIdx].returnStatus = 'rejected';
-        localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
-      }
-    } catch(e) {}
-  }
+  await window.VFS_DB.updateOrder(retObj.orderId, { returnStatus: 'rejected' });
 
   adminToast(`Return ${retId} rejected.`);
-  loadDashboard();
+  await loadDashboard();
+  
+  // Re-load returns list to reflect rejection status instantly
+  await loadReturnQueries();
 
   // 3. Pre-fill WhatsApp message
   const text = `Hi, your return request for order ${retObj.orderId} was reviewed and could not be approved due to: ${reason}. Please contact us if you have any questions.`;
@@ -1714,7 +1956,7 @@ window.rejectReturnRequest = function(retId) {
   window.open(waUrl, '_blank');
 };
 
-window.checkCustomerWalletCredits = function() {
+window.checkCustomerWalletCredits = async function() {
   const phone = document.getElementById('walletSearchPhone').value.trim();
   const resultDiv = document.getElementById('walletResult');
   if (!phone || phone.length !== 10) {
@@ -1722,12 +1964,7 @@ window.checkCustomerWalletCredits = function() {
     return;
   }
   
-  const creditsStored = localStorage.getItem('vfs_customer_credits');
-  let creditsLedger = {};
-  if (creditsStored) {
-    try { creditsLedger = JSON.parse(creditsStored); } catch(e) {}
-  }
-  
+  const creditsLedger = await window.VFS_DB.getWalletCredits();
   const credits = creditsLedger[phone] || 0;
   
   resultDiv.style.display = 'block';

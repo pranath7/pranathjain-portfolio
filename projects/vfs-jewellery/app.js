@@ -18,17 +18,206 @@ const PRODUCTS = [
   { id: 12, name: 'Tennis Bracelet CZ', cat: 'bracelets', meta: 'Rose Gold', price: 1099, mrp: 2199, img: 'assets/bracelets.webp', rating: 4.8, reviews: 298, badge: 'Trending' },
 ];
 
-function getFullCatalog() {
-  const stored = localStorage.getItem('vfs_products');
-  if (stored) {
-    try { return JSON.parse(stored); } catch(e) {}
+// ── Cloud Persistence & File Upload wrappers ──
+window.VFS_CLOUD_ACTIVE = false;
+window.VFS_CONFIG = {
+  firebase: null,
+  cloudinary: null
+};
+window.VFS_PRODUCTS_CACHE = [];
+
+// Initialize Cloud configuration from public vfs-config.json
+async function initCloudConfig() {
+  try {
+    const res = await fetch('vfs-config.json');
+    if (res.ok) {
+      const config = await res.json();
+      if (config.firebase && config.firebase.apiKey && !config.firebase.apiKey.startsWith("YOUR_")) {
+        window.VFS_CONFIG = config;
+        firebase.initializeApp(config.firebase);
+        window.db = firebase.firestore();
+        window.VFS_CLOUD_ACTIVE = true;
+        console.log("🔥 VFS Cloud: Connected to Firebase Firestore.");
+        
+        // Sync catalog from Firestore
+        const dbProducts = await window.VFS_DB.getProducts();
+        if (dbProducts && dbProducts.length > 0) {
+          window.VFS_PRODUCTS_CACHE = dbProducts;
+          renderProducts(null);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("⚠️ VFS Cloud: Falling back to localStorage mode.", e);
   }
-  // Initialize with defaults and assign default SKUs if not present
-  const defaults = PRODUCTS.map((p, idx) => ({
-    ...p,
-    sku: p.sku || `SN-${String(idx + 1).padStart(4, '0')}`
-  }));
-  localStorage.setItem('vfs_products', JSON.stringify(defaults));
+}
+
+// Call config initialization asynchronously
+initCloudConfig();
+
+window.uploadToCloudinary = async function(file) {
+  if (!window.VFS_CONFIG.cloudinary || !window.VFS_CONFIG.cloudinary.cloudName || window.VFS_CONFIG.cloudinary.cloudName.startsWith("YOUR_")) {
+    throw new Error("Cloudinary not configured");
+  }
+  const cloudName = window.VFS_CONFIG.cloudinary.cloudName;
+  const preset = window.VFS_CONFIG.cloudinary.uploadPreset;
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', preset);
+  
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/upload`, {
+    method: 'POST',
+    body: formData
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || "Upload failed");
+  }
+  const data = await res.json();
+  return data.secure_url;
+};
+
+window.VFS_DB = {
+  // ── Orders ──
+  getOrders: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('orders').get();
+        const orders = [];
+        snap.forEach(doc => {
+          orders.push(doc.data());
+        });
+        return orders;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    return local ? JSON.parse(local) : [];
+  },
+  
+  saveOrder: async function(order) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('orders').doc(order.id).set(order);
+        return;
+      } catch(e) {
+        console.error("Firestore write error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    let list = local ? JSON.parse(local) : [];
+    list.push(order);
+    localStorage.setItem('vfs_orders', JSON.stringify(list));
+  },
+
+  updateOrder: async function(orderId, updates) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('orders').doc(orderId).update(updates);
+        return;
+      } catch(e) {
+        console.error("Firestore update error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_orders');
+    if (local) {
+      const list = JSON.parse(local);
+      const idx = list.findIndex(o => o.id === orderId);
+      if (idx !== -1) {
+        list[idx] = { ...list[idx], ...updates };
+        localStorage.setItem('vfs_orders', JSON.stringify(list));
+      }
+    }
+  },
+
+  // ── Returns ──
+  getReturns: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('returns').get();
+        const returns = [];
+        snap.forEach(doc => {
+          returns.push(doc.data());
+        });
+        return returns;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_returns');
+    return local ? JSON.parse(local) : [];
+  },
+
+  saveReturn: async function(retObj) {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        await window.db.collection('returns').doc(retObj.id).set(retObj);
+        return;
+      } catch(e) {
+        console.error("Firestore write error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_returns');
+    let list = local ? JSON.parse(local) : [];
+    list.push(retObj);
+    localStorage.setItem('vfs_returns', JSON.stringify(list));
+  },
+
+  // ── Wallet Credits ──
+  getWalletCredits: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('wallet_credits').get();
+        const credits = {};
+        snap.forEach(doc => {
+          credits[doc.id] = doc.data().balance || 0;
+        });
+        return credits;
+      } catch(e) {
+        console.error("Firestore read error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_customer_credits');
+    return local ? JSON.parse(local) : {};
+  },
+
+  // ── Catalog Products ──
+  getProducts: async function() {
+    if (window.VFS_CLOUD_ACTIVE) {
+      try {
+        const snap = await window.db.collection('products').get();
+        const products = [];
+        snap.forEach(doc => {
+          products.push(doc.data());
+        });
+        if (products.length > 0) return products;
+      } catch(e) {
+        console.error("Firestore read products error:", e);
+      }
+    }
+    const local = localStorage.getItem('vfs_custom_products');
+    return local ? JSON.parse(local) : null;
+  }
+};
+
+function getFullCatalog() {
+  if (window.VFS_PRODUCTS_CACHE && window.VFS_PRODUCTS_CACHE.length > 0) {
+    return window.VFS_PRODUCTS_CACHE;
+  }
+  const stored = localStorage.getItem('vfs_products');
+  let defaults = [];
+  if (stored) {
+    try { defaults = JSON.parse(stored); } catch(e) {}
+  }
+  if (!defaults.length) {
+    defaults = PRODUCTS.map((p, idx) => ({
+      ...p,
+      sku: p.sku || `SN-${String(idx + 1).padStart(4, '0')}`
+    }));
+    localStorage.setItem('vfs_products', JSON.stringify(defaults));
+  }
+  window.VFS_PRODUCTS_CACHE = defaults;
   return defaults;
 }
 
@@ -667,17 +856,11 @@ $('#coForm').addEventListener('submit', (e) => {
 });
 
 // Confirm and Order via WhatsApp
-$('#coConfirmBtn').addEventListener('click', () => {
+$('#coConfirmBtn').addEventListener('click', async () => {
   if (!activeCheckoutOrder) return;
   
-  // Add order to orders list in LocalStorage
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
-  ordersList.push(activeCheckoutOrder);
-  localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
+  // Save order via VFS_DB wrapper
+  await window.VFS_DB.saveOrder(activeCheckoutOrder);
   
   // Create Formatted WhatsApp Message
   let itemsSummaryText = "";
@@ -1634,7 +1817,7 @@ if (closeTrackingBtn) {
 
 const btnTrackOrder = $('#btnTrackOrder');
 if (btnTrackOrder) {
-  btnTrackOrder.addEventListener('click', () => {
+  btnTrackOrder.addEventListener('click', async () => {
     const orderId = $('#trackInput').value.trim();
     const detailsContainer = $('#trackingDetails');
     if (!orderId) {
@@ -1642,12 +1825,8 @@ if (btnTrackOrder) {
       return;
     }
     
-    const stored = localStorage.getItem('vfs_orders');
-    let ordersList = [];
-    if (stored) {
-      try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-    }
-    
+    // Retrieve orders via VFS_DB wrapper
+    const ordersList = await window.VFS_DB.getOrders();
     const order = ordersList.find(o => o.id.toLowerCase() === orderId.toLowerCase());
     
     if (!order) {
@@ -1840,12 +2019,9 @@ document.addEventListener('keydown', (e) => {
 
 // ── Init ──
 // ── Customer PDF Invoice Downloader ──
-window.downloadCustomerInvoicePDF = function(orderId) {
-  const stored = localStorage.getItem('vfs_orders');
-  let ordersList = [];
-  if (stored) {
-    try { ordersList = JSON.parse(stored); } catch(e) { ordersList = []; }
-  }
+window.downloadCustomerInvoicePDF = async function(orderId) {
+  // Retrieve orders via VFS_DB wrapper
+  const ordersList = await window.VFS_DB.getOrders();
   
   const order = ordersList.find(o => o.id === orderId);
   if (!order) return;
@@ -2219,7 +2395,7 @@ window.toggleReturnForm = function() {
   }
 }
 
-window.submitReturnRequest = function(event, orderId, phone) {
+window.submitReturnRequest = async function(event, orderId, phone) {
   event.preventDefault();
   
   const invoiceInput = document.getElementById('retInvoiceFile');
@@ -2244,40 +2420,23 @@ window.submitReturnRequest = function(event, orderId, phone) {
   
   const defectDesc = descInput.value.trim();
   
-  const handleSuccess = (invoiceB64, videoB64) => {
-    const stored = localStorage.getItem('vfs_returns');
-    let returnsList = [];
-    if (stored) {
-      try { returnsList = JSON.parse(stored); } catch(e) {}
-    }
-    
+  const handleSuccess = async (invoiceURL, videoURL) => {
     // Save return request
     const returnObj = {
       id: 'RET-' + Date.now().toString().slice(-4),
       orderId: orderId,
       phone: phone,
-      invoice: invoiceB64,
-      video: videoB64,
+      invoice: invoiceURL,
+      video: videoURL,
       desc: defectDesc,
       status: 'pending',
       date: new Date().toLocaleDateString('en-IN')
     };
     
-    returnsList.push(returnObj);
-    localStorage.setItem('vfs_returns', JSON.stringify(returnsList));
+    await window.VFS_DB.saveReturn(returnObj);
     
     // Update order returnStatus to pending
-    const ordersStored = localStorage.getItem('vfs_orders');
-    if (ordersStored) {
-      try {
-        const ordersList = JSON.parse(ordersStored);
-        const oIdx = ordersList.findIndex(o => o.id === orderId);
-        if (oIdx !== -1) {
-          ordersList[oIdx].returnStatus = 'pending';
-          localStorage.setItem('vfs_orders', JSON.stringify(ordersList));
-        }
-      } catch(e) {}
-    }
+    await window.VFS_DB.updateOrder(orderId, { returnStatus: 'pending' });
     
     toast('Return submitted successfully! 🔄');
     
@@ -2289,24 +2448,53 @@ window.submitReturnRequest = function(event, orderId, phone) {
   if (debugFilled) {
     const dummyImage = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150'><rect width='150' height='150' fill='%23D4AF37'/><text x='15' y='80' fill='black' font-family='sans-serif' font-weight='bold'>VFS INVOICE PROOF</text></svg>";
     const dummyVideo = "data:video/mp4;base64,AAAAIGZ0eXBtcDQyAAAAAG1wNDJpc29tYXZjMQAAADhmdmVlAAAAAGhhbmRsAAAAAG1pbmYAAAAAZWxzdAAAAABzdGJsAAAAAG1kaWEAAAAAbWRoZAAAAAA=";
-    setTimeout(() => {
-      handleSuccess(dummyImage, dummyVideo);
+    setTimeout(async () => {
+      await handleSuccess(dummyImage, dummyVideo);
     }, 800);
     return;
   }
 
   const invoiceFile = invoiceInput.files[0];
   const videoFile = videoInput.files[0];
+
+  // Try Cloudinary if active
+  if (window.VFS_CLOUD_ACTIVE && window.VFS_CONFIG.cloudinary && window.VFS_CONFIG.cloudinary.cloudName && !window.VFS_CONFIG.cloudinary.cloudName.startsWith("YOUR_")) {
+    try {
+      submitBtn.textContent = 'Uploading to Cloudinary...';
+      const [invoiceURL, videoURL] = await Promise.all([
+        window.uploadToCloudinary(invoiceFile),
+        window.uploadToCloudinary(videoFile)
+      ]);
+      await handleSuccess(invoiceURL, videoURL);
+    } catch(err) {
+      console.error(err);
+      toast('Cloudinary upload failed. Falling back to local storage.');
+      // Fallback: convert files to Base64 in parallel using FileReader
+      const readAsBase64 = (file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+      });
+      Promise.all([readAsBase64(invoiceFile), readAsBase64(videoFile)]).then(async ([invoiceB64, videoB64]) => {
+        await handleSuccess(invoiceB64, videoB64);
+      }).catch(e => {
+        toast('Error processing attachments.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Return Request';
+      });
+    }
+    return;
+  }
   
-  // Convert both files to Base64 in parallel using FileReader
+  // Standard LocalStorage base64 fallback
   const readAsBase64 = (file) => new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.readAsDataURL(file);
   });
   
-  Promise.all([readAsBase64(invoiceFile), readAsBase64(videoFile)]).then(([invoiceB64, videoB64]) => {
-    handleSuccess(invoiceB64, videoB64);
+  Promise.all([readAsBase64(invoiceFile), readAsBase64(videoFile)]).then(async ([invoiceB64, videoB64]) => {
+    await handleSuccess(invoiceB64, videoB64);
   }).catch(err => {
     console.error(err);
     toast('Error parsing files. Try smaller attachments.');
