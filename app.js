@@ -3,6 +3,7 @@
 // ==========================================================================
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupNavigation();
   setupSmoothScrolling();
   setupScrollReveals();
   setupHeroEntrance();
@@ -10,6 +11,34 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAboutFloatingAnnotations();
   logSystemStatus();
 });
+
+function setupNavigation() {
+  const toggle = document.querySelector('.nav-toggle');
+  const navigation = document.querySelector('#primary-navigation');
+  if (!toggle || !navigation) return;
+
+  const setOpen = (isOpen) => {
+    toggle.setAttribute('aria-expanded', String(isOpen));
+    toggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+    navigation.classList.toggle('is-open', isOpen);
+  };
+
+  toggle.addEventListener('click', () => {
+    setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+  });
+
+  navigation.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setOpen(false));
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setOpen(false);
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 640) setOpen(false);
+  });
+}
 
 // 1. Smooth Scroll to Anchors
 function setupSmoothScrolling() {
@@ -84,6 +113,7 @@ function setupHeroEntrance() {
 function setupPremiumFloatingCollage() {
   const container = document.getElementById('collage-container');
   if (!container) return;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   
   // Collage element definitions with individual coordinates, intensity, and parallax physics
   const items = [
@@ -148,6 +178,17 @@ function setupPremiumFloatingCollage() {
       hoverRotationOffset: -4
     }
   ];
+
+  if (prefersReducedMotion) {
+    items.forEach(item => {
+      if (!item.el) return;
+      item.el.style.transform = `rotate(${item.baseRotation}deg)`;
+      item.el.style.opacity = '1';
+      item.el.style.cursor = 'default';
+      item.el.style.userSelect = '';
+    });
+    return;
+  }
 
   // Initialize interactive physical values
   const physics = {
@@ -321,6 +362,13 @@ function setupPremiumFloatingCollage() {
 function setupAboutFloatingAnnotations() {
   const annotations = document.querySelectorAll('.about-left .handwritten-note');
   if (annotations.length === 0) return;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
+    annotations.forEach((note, index) => {
+      note.style.transform = `rotate(${index === 0 ? 8 : -4}deg)`;
+    });
+    return;
+  }
 
   const physics = {
     mouseX: 0,

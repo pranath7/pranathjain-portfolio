@@ -5,24 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <!-- Primary SEO Metadata -->
-  <title>Pranath Jain — Student Entrepreneur & Trader</title>
-  <meta name="description" content="Pranath Jain is a 17-year-old student entrepreneur, stock & forex trader, and website developer based in Chennai, India. Discover his portfolio, projects, and trading strategies.">
-  <meta name="keywords" content="Pranath Jain, Pranath Jain Chennai, Pranath, Jain, Pranath Jain portfolio, Pranath Jain trader, student entrepreneur, website developer Chennai, gold trader XAUUSD, forex trading Price Action">
+  <title>Pranath Jain — Websites & AI Workflows for Businesses</title>
+  <meta name="description" content="Pranath Jain builds websites, digital catalogs, and AI workflows for local businesses in Chennai, India. Explore selected projects and get in touch.">
+  <meta name="keywords" content="Pranath Jain, Pranath Jain Chennai, Pranath Jain portfolio, student builder, website developer Chennai, business websites, digital catalogs, AI automation">
   <meta name="author" content="Pranath Jain">
   <link rel="canonical" href="https://www.pranathjain.online/">
 
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.pranathjain.online/">
-  <meta property="og:title" content="Pranath Jain — Student Entrepreneur & Trader">
-  <meta property="og:description" content="Pranath Jain is a 17-year-old student entrepreneur, stock & forex trader, and website developer based in Chennai, India. Discover his portfolio, projects, and trading strategies.">
+  <meta property="og:title" content="Pranath Jain — Websites & AI Workflows for Businesses">
+  <meta property="og:description" content="Websites, digital catalogs, and AI workflows for local businesses in Chennai, India. Explore selected projects and get in touch.">
   <meta property="og:image" content="https://www.pranathjain.online/pranath_portrait.png">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://www.pranathjain.online/">
-  <meta property="twitter:title" content="Pranath Jain — Student Entrepreneur & Trader">
-  <meta property="twitter:description" content="Pranath Jain is a 17-year-old student entrepreneur, stock & forex trader, and website developer based in Chennai, India. Discover his portfolio, projects, and trading strategies.">
+  <meta property="twitter:title" content="Pranath Jain — Websites & AI Workflows for Businesses">
+  <meta property="twitter:description" content="Websites, digital catalogs, and AI workflows for local businesses in Chennai, India. Explore selected projects and get in touch.">
   <meta property="twitter:image" content="https://www.pranathjain.online/pranath_portrait.png">
 
   <!-- JSON-LD Structured Data for Search Engine Entity (Schema.org Person) -->
@@ -37,7 +37,7 @@
       "https://instagram.com/finwithpranath",
       "https://www.linkedin.com/in/pranath-jain-963299266/"
     ],
-    "jobTitle": "Student Entrepreneur & Trader",
+    "jobTitle": "Student & Website Developer",
     "knowsAbout": [
       "Website Development",
       "Stock & Forex Trading",
@@ -59,7 +59,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Over+the+Rainbow&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -70,7 +70,10 @@
         <span class="logo-mark">P</span>
         <span class="logo-text">pranath.jain</span>
       </a>
-      <nav class="nav-links">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation">
+        <span></span><span></span>
+      </button>
+      <nav class="nav-links" id="primary-navigation" aria-label="Main navigation">
         <a href="#work" class="nav-link">work</a>
         <a href="#interests" class="nav-link">interests</a>
         <a href="#achievements" class="nav-link">achievements</a>
@@ -90,7 +93,12 @@
         <!-- Left Side Title -->
         <div class="hero-left">
           <h1 class="hero-name">pranath</h1>
-          <div class="handwritten-note hero-cursive-title">student entrepreneur</div>
+          <div class="handwritten-note hero-cursive-title">websites · AI · automation</div>
+          <p class="hero-summary">Digital experiences that help local businesses showcase products and serve customers online.</p>
+          <div class="hero-actions">
+            <a class="hero-primary-action" href="mailto:pranathwork@gmail.com?subject=Project%20enquiry">discuss a project</a>
+            <a class="hero-secondary-action" href="#work">explore my work <span aria-hidden="true">↘</span></a>
+          </div>
         </div>
         
         <!-- Right Side Overlapping Interactive Collage -->
@@ -140,7 +148,7 @@
     <section class="intro-statement-section">
       <div class="section-container">
         <h2 class="intro-statement-text reveal-on-scroll">
-          my approach is built on <span class="highlight">learning early</span>, solving <span class="highlight">real business problems</span>, and driving <span class="highlight">long-term value</span>.
+          I help local businesses <span class="highlight">showcase their products</span> and make everyday work easier with thoughtful websites and automation.
         </h2>
       </div>
     </section>
@@ -148,9 +156,22 @@
     <!-- FEATURED WORK SECTION -->
     <section id="work" class="work-section">
       <div class="section-container">
-        <div class="section-label">portfolio</div>
+        <div class="section-label">selected projects</div>
         <h2 class="section-title reveal-on-scroll">featured work</h2>
-        
+        <div class="featured-projects-grid">
+          <a href="https://bhairavplywood.shop" target="_blank" rel="noopener noreferrer" class="featured-project-card reveal-on-scroll">
+            <div class="featured-project-cover bhairav-cover"><span class="cover-tag">BUSINESS CATALOG</span></div>
+            <div class="featured-project-copy"><h3>Bhairav Plywood</h3><p>A digital catalog that helps customers browse plywood and timber products.</p><div class="project-focus"><span>Project focus</span><strong>Product discovery · Business catalog</strong></div><span class="featured-project-link">view live project <span aria-hidden="true">↗</span></span></div>
+          </a>
+          <a href="https://vfsjewels.store" target="_blank" rel="noopener noreferrer" class="featured-project-card reveal-on-scroll">
+            <div class="featured-project-cover vfs-cover"><img src="projects/vfs-jewellery/assets/rings.webp" alt="Gold-tone ring from the VFS Jewellery collection" loading="lazy"><span class="cover-tag">ONLINE STORE</span></div>
+            <div class="featured-project-copy"><h3>VFS Jewellery</h3><p>An online shopping experience for browsing jewellery collections and placing orders.</p><div class="project-focus"><span>Project focus</span><strong>Product search · Cart · WhatsApp ordering</strong></div><span class="featured-project-link">view live project <span aria-hidden="true">↗</span></span></div>
+          </a>
+          <a href="https://sfitkitchen.com" target="_blank" rel="noopener noreferrer" class="featured-project-card reveal-on-scroll">
+            <div class="featured-project-cover sfit-cover"><img src="projects/sfit-website/screenshot-desktop.png" alt="Screenshot of the S-FIT Kitchen and Hardware website" loading="lazy"><span class="cover-tag">PRODUCT PORTAL</span></div>
+            <div class="featured-project-copy"><h3>SFIT Kitchen &amp; Hardware</h3><p>A showroom website for discovering modular kitchen fittings and hardware products.</p><div class="project-focus"><span>Project focus</span><strong>Product catalog · Downloadable brochure · Contact</strong></div><span class="featured-project-link">view live project <span aria-hidden="true">↗</span></span></div>
+          </a>
+        </div>
         <div class="view-all-projects-container reveal-on-scroll" style="margin-top: 40px; justify-content: center;">
           <a href="projects.html" class="view-all-btn">
             <span>view all projects</span>
@@ -165,7 +186,7 @@
     <!-- INTERESTS & VALUES SECTION -->
     <section id="interests" class="interests-section">
       <div class="section-container">
-        <div class="section-label">interests & values</div>
+        <div class="section-label">what I work on</div>
         
         <div class="interests-grid">
           <!-- Card 1: Entrepreneurship -->
@@ -184,7 +205,7 @@
             </div>
             <div class="trading-sub-grid">
               <div class="trading-sub-item">
-                <span class="trading-sub-label">specialization</span>
+                <span class="trading-sub-label">markets I study</span>
                 <span class="trading-sub-val">Gold (XAUUSD) • Forex Markets</span>
               </div>
               <div class="trading-sub-item">
@@ -211,7 +232,7 @@
               <span class="interest-icon">✨</span>
               <h3 class="interest-title">Branding & UX</h3>
             </div>
-            <p class="interest-desc">designing premium, cohesive identity packages. I believe great businesses are built on deep trust, symmetric layouts, and exceptional user flows.</p>
+            <p class="interest-desc">creating cohesive visual identities and clear, balanced layouts that make digital experiences easier to use.</p>
           </div>
         </div>
 
@@ -265,7 +286,7 @@
             <div class="timeline-date">2023</div>
             <div class="timeline-content">
               <h3 class="timeline-title">Learned Web Dev &amp; Digital Marketing</h3>
-              <p class="timeline-desc">Mastered semantic website design, modern layouts, branding principles, and online growth strategies.</p>
+              <p class="timeline-desc">Studied website design, modern layouts, branding principles, and digital marketing.</p>
             </div>
           </div>
           
@@ -294,8 +315,8 @@
             <div class="timeline-dot"></div>
             <div class="timeline-date">2026</div>
             <div class="timeline-content">
-              <h3 class="timeline-title">Scaling Communities &amp; AI Services</h3>
-              <p class="timeline-desc">Launching local student entrepreneur communities, expanding AI-driven workflow services, and helping local businesses scale online (such as Bhairav Plywood).</p>
+              <h3 class="timeline-title">Building with Local Businesses</h3>
+              <p class="timeline-desc">Continuing to build digital tools for local businesses and explore practical AI workflow automation.</p>
             </div>
           </div>
         </div>
@@ -319,21 +340,20 @@
           <div class="section-label">about me</div>
           <h2 class="about-title">hey there, i'm pranath.</h2>
           <p class="about-para">
-            I'm a 17-year-old student entrepreneur based in Chennai, India. I believe that age should never be a boundary to building meaningful projects. Instead of waiting for graduation or a "perfect time," I enjoy studying markets, building real-world software, and starting businesses while still in school.
+            I'm a student builder based in Chennai, India. I enjoy turning real business needs into useful websites, digital catalogs, and software while continuing to learn through hands-on projects.
           </p>
           <p class="about-para">
-            Over the past few years, I have actively worked with multiple local businesses (like Bhairav Plywood and VFS Jewellery) to digitize their operations and build custom catalog portals. I also design automated workflow integrations and study stock/forex market mechanics.
+            I've worked with local businesses including Bhairav Plywood and VFS Jewellery to create online catalogs and improve how they present products. I also explore workflow automation, branding, and financial markets.
           </p>
           
           <div class="skills-section">
             <h3 class="skills-heading">core focus areas</h3>
             <div class="tech-tags">
               <span class="tech-tag">Entrepreneurship</span>
-              <span class="tech-tag">Stock &amp; Forex Trading</span>
               <span class="tech-tag">AI Automation</span>
-              <span class="tech-tag">Branding &amp; Marketing</span>
-              <span class="tech-tag">Business Strategy</span>
-              <span class="tech-tag">UI Design / React</span>
+              <span class="tech-tag">Digital Catalogs</span>
+              <span class="tech-tag">Branding &amp; UX</span>
+              <span class="tech-tag">Web Development</span>
             </div>
           </div>
 
@@ -394,6 +414,6 @@
   </footer>
 
   <!-- Main JavaScript App Logic with Parallax Physics -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

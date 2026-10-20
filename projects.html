@@ -31,7 +31,7 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Over+the+Rainbow&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheet -->
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -42,7 +42,10 @@
         <span class="logo-mark">P</span>
         <span class="logo-text">pranath.jain</span>
       </a>
-      <nav class="nav-links">
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" aria-label="Open navigation">
+        <span></span><span></span>
+      </button>
+      <nav class="nav-links" id="primary-navigation" aria-label="Main navigation">
         <a href="index.html#work" class="nav-link">work</a>
         <a href="index.html#interests" class="nav-link">interests</a>
         <a href="index.html#achievements" class="nav-link">achievements</a>
@@ -156,7 +159,7 @@
           </a>
 
           <!-- PROJECT 6: VFS JEWELLERY -->
-          <a href="https://vfs-jewellery.surge.sh/" target="_blank" class="project-card reveal-on-scroll">
+          <a href="https://vfsjewels.store" target="_blank" rel="noopener noreferrer" class="project-card reveal-on-scroll">
             <div class="project-cover vfs-cover">
               <div class="cover-glow"></div>
               <span class="cover-tag">COMMERCE</span>
@@ -222,6 +225,6 @@
   </footer>
 
   <!-- Main JavaScript App Logic -->
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
